@@ -4,6 +4,7 @@ import torch.utils.data
 import data_loader
 import cv2
 import math
+import matplotlib.pyplot as plt
 
 
 def convert_roll_to_roll_new(roll):
@@ -173,5 +174,19 @@ class DataSetTorch(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    dataset = data_loader.DataSet('../data/training')
+    dataset = data_loader.DataSet(path_csv='../data/train.csv',
+                                  path_folder_images='../data/train_images',
+                                  path_folder_masks='../data/train_masks',
+                                  )
     dataset_torch = DataSetTorch(dataset)
+    [img, mask, regr] = dataset_torch[0]
+
+    # plot example
+    fig, ax = plt.subplots(3, 1, figsize=(10, 10))
+    ax[0].imshow(img[:, :, ::-1])
+    ax[1].imshow(mask)
+    ax[2].imshow(regr[:, :, 0])
+    fig.tight_layout()
+    plt.show()
+
+    print("=== Finished")

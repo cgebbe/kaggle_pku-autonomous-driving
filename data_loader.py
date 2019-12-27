@@ -1,12 +1,3 @@
-"""
-dataset -> each item contains...
-    - list of IDs
-Item
-    image
-    target_values as list of dicts(?)
-        
-"""
-
 import pandas as pd
 import numpy as np
 import os
@@ -82,7 +73,7 @@ class Car:
                                 ]).T  # 4xN
         Rt = np.eye(4)
         Rt[0:3, 0:3] = euler_to_Rot(-self.yaw, -self.pitch, -self.roll).T
-        Rt[0:3, 3] = xyz_center
+        Rt[0:3, 3] = np.array([self.x, self.y, self.z]).T  # 3x1 vector
         xyz_corners_rot = np.dot(Rt, xyz_corners)
         uv_corners = xyz2uv(xyz_corners_rot, self.cam_K)
         ax.plot(uv_corners[0, :], uv_corners[1, :], color='red')
@@ -118,10 +109,16 @@ class DataItem:
                       )
             self.cars.append(car)
 
-    def get_cars_as_string(self):
+    def get_cars_as_string(self, flag_submission=False):
         values = []
         for car in self.cars:
-            values.extend([car.id, car.pitch, car.yaw, car.roll, car.x, car.y, car.z])
+            if flag_submission:
+                # car.id is abused to store logits
+                confidence = 1 / (1 + np.exp(-car.id))
+                assert (0 <= confidence and confidence <= 1), "confidence not in [0,1]"
+                values.extend([car.pitch, car.yaw, car.roll, car.x, car.y, car.z, confidence])
+            else:
+                values.extend([car.id, car.pitch, car.yaw, car.roll, car.x, car.y, car.z])
         values = [str(x) for x in values]
         string = ' '.join(values)
         return string
@@ -142,11 +139,15 @@ class DataItem:
 
 
 class DataSet:
-    def __init__(self, path_folder):
-        self.path_folder = path_folder
-        self.df_cars = pd.read_csv(os.path.join(path_folder, 'coords.csv'),
-                                   sep=',',
-                                   )
+    def __init__(self,
+                 path_csv,
+                 path_folder_images,
+                 path_folder_masks,
+                 ):
+        self.path_folder_images = path_folder_images
+        self.path_folder_masks = path_folder_masks
+        assert os.path.isfile(path_csv)
+        self.df_cars = pd.read_csv(path_csv, sep=',')
         self.list_ids = self.df_cars.loc[:, 'ImageId']
 
     def __len__(self):
@@ -163,12 +164,12 @@ class DataSet:
 
         # load image
         if flag_load_img:
-            path_img = os.path.join(self.path_folder, 'images', id + '.jpg')
+            path_img = os.path.join(self.path_folder_images, id + '.jpg')
             item.img = cv2.imread(path_img)
 
         # load mask
         if flag_load_mask:
-            path_mask = os.path.join(self.path_folder, 'masks', id + '.jpg')
+            path_mask = os.path.join(self.path_folder_masks, id + '.jpg')
             try:
                 item.mask = cv2.imread(path_mask)
             except:
@@ -185,22 +186,26 @@ class DataSet:
 
 
 if __name__ == '__main__':
-    dataset = DataSet(path_folder='../data/train')
+    dataset = DataSet(path_csv='../data/train.csv',
+                      path_folder_images='../data/train_images',
+                      path_folder_masks='../data/train_masks',
+                      )
     num_items = len(dataset)
 
     # plot distribution of roll angles
-    list_roll = []
-    for idx_item, id in enumerate(dataset.list_ids):
-        print("{}/{}".format(idx_item / num_items))
-        item = dataset.load_item(id, flag_load_img=False, flag_load_mask=False)
-        for car in item.cars:
-            list_roll.append(car.roll)
-    roll_min = np.min(list_roll)
-    roll_max = np.max(list_roll)
-    plt.hist(list_roll, bins=200)
-    plt.show()
+    if False:
+        list_roll = []
+        for idx_item, id in enumerate(dataset.list_ids):
+            print("{}/{}".format(idx_item, num_items))
+            item = dataset.load_item(id, flag_load_img=False, flag_load_mask=False)
+            for car in item.cars:
+                list_roll.append(car.roll)
+        roll_min = np.min(list_roll)
+        roll_max = np.max(list_roll)
+        plt.hist(list_roll, bins=200)
+        plt.show()
 
-        # plot
+    # plot
     for idx_item, id in enumerate(dataset.list_ids):
         item = dataset.load_item(id)
         item.plot()
