@@ -3,9 +3,9 @@ model:
   path_weights: 'output/model_11.pth'
 
 dataset:
-  path_csv: '/kaggle/input/pku-autonomous-driving/train.csv',
-  path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images',
-  path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks',
+  path_csv: '/kaggle/input/pku-autonomous-driving/train.csv'
+  path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
+  path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
 
 mode: 'predict' # train or predict
 
