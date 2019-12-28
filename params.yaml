@@ -14,8 +14,9 @@ train:
   num_epochs: 12
   idx_epoch_switch: 5
   learning_rate: 0.001
+  path_csv_out: 'out_train.csv'
 
 predict:
   batch_size: 4
-  flag_plot: 1
+  path_csv_out: 'out_predict.csv'
 
