@@ -18,5 +18,6 @@ train:
 
 predict:
   batch_size: 4
+  num_batches_max: 2
   path_csv_out: 'out_predict.csv'
 

@@ -18,6 +18,9 @@ def predict(model,
     predictions = []
     model.eval()
     for idx_batch, (img, _, _) in enumerate(tqdm(data_loader)):
+        if idx_batch > params['num_batches_max']:
+            print("Ending because of param num_batches_max={}".format(params['num_batches_max']))
+            break
         with torch.no_grad():
             output = model(img.to(device))
         output = output.data.cpu().numpy()
