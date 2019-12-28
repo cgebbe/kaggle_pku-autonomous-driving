@@ -1,13 +1,13 @@
 from tqdm.notebook import tqdm as tqdm
 import torch
-
+import torch.utils.data
 
 def predict(model,
             device,
             dataset_torch,
             params,
             ):
-    data_loader = torch.DataLoader(dataset=dataset_torch,
+    data_loader = torch.utils.data.DataLoader(dataset=dataset_torch,
                                    batch_size=params['batch_size'],
                                    shuffle=False,
                                    num_workers=0,
