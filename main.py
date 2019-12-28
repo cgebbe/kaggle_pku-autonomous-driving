@@ -1,6 +1,7 @@
 import yaml
 import torch
 import logging
+import os
 
 import model_architecture
 import data_loader_torch
@@ -28,6 +29,7 @@ def main():
     model = model_architecture.CentResnet(8, device).to(device)
     path_weights = params['model']['path_weights']
     if path_weights:
+        assert os.path.isfile(path_weights), "path_weights does not exist as a file"
         model.load_state_dict(torch.load(path_weights))
 
     # load dataset
