@@ -38,14 +38,16 @@ class DataSetTorch(torch.utils.data.Dataset):
                  model_input_height=512,
                  model_input_width=2048,
                  model_factor_downsample=8,
+                 is_training=True,
                  ):
         self.dataset = dataset
+        self.is_training = is_training
         self.factor_downsample = model_factor_downsample
         self.model_input_height = model_input_height
         self.model_input_width = model_input_width
 
     def __len__(self):
-        return len(dataset)
+        return len(self.dataset)
 
     def __getitem__(self, idx_item):
         # load item
@@ -54,13 +56,19 @@ class DataSetTorch(torch.utils.data.Dataset):
         id = self.dataset.list_ids[idx_item]
         item = self.dataset.load_item(id)
 
-        # preprocess image and label
+        # preprocess image
         img = self.preprocess_img(item.img)
-        mat = self.convert_item_to_mat(item)
+        img = np.rollaxis(img, 2, 0)
 
-        # output
-        mask = mat[:, :, 0]
-        regr = mat[:, :, 1:]
+        # Get mask and regression maps
+        if self.is_training:
+            mat = self.convert_item_to_mat(item)
+            mask = mat[:, :, 0]
+            regr = mat[:, :, 1:]
+            regr = np.rollaxis(regr, 2, 0)
+        else:
+            mask, regr = 0, 0
+
         return [img, mask, regr]
 
     def preprocess_img(self, img):
@@ -90,8 +98,8 @@ class DataSetTorch(torch.utils.data.Dataset):
             uv_center = car.get_uv_center()
             uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img)
             u, v = uv_new[0], uv_new[1]
-            if 0 <= u and u < self.model_input_width:
-                if 0 <= v and v <= self.model_input_height:
+            if 0 <= u and u < mat.shape[1]:
+                if 0 <= v and v < mat.shape[0]:
                     mat[v, u, 0] = 1  # confidence
                     mat[v, u, 1] = car.x
                     mat[v, u, 2] = car.y
@@ -174,12 +182,18 @@ class DataSetTorch(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    dataset = data_loader.DataSet(path_csv='../data/train.csv',
-                                  path_folder_images='../data/train_images',
-                                  path_folder_masks='../data/train_masks',
+    dataset = data_loader.DataSet(path_csv='/kaggle/input/pku-autonomous-driving/train.csv',
+                                  path_folder_images='/kaggle/input/pku-autonomous-driving/train_images',
+                                  path_folder_masks='/kaggle/input/pku-autonomous-driving/train_masks',
                                   )
     dataset_torch = DataSetTorch(dataset)
     [img, mask, regr] = dataset_torch[0]
+
+    # reverse rolling backwards
+    img = np.rollaxis(img, 0, 3)
+    regr = np.rollaxis(regr, 0, 3)
+    print(img.shape)
+    print(regr.shape)
 
     # plot example
     fig, ax = plt.subplots(3, 1, figsize=(10, 10))

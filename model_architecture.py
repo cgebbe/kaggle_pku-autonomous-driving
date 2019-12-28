@@ -296,7 +296,9 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    # define model
+    # define model and test inference with dummy data
     model = CentResnet(8, device).to(device)
     img_batch = torch.randn((1, 3, 512, 2048))
     mat_pred = model(img_batch.to(device))
+    print(mat_pred)
+    print('=== Finished')

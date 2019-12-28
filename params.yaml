@@ -1,0 +1,21 @@
+model:
+  num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
+  path_weights: 'output/model_11.pth'
+
+dataset:
+  path_csv: '/kaggle/input/pku-autonomous-driving/train.csv',
+  path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images',
+  path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks',
+
+mode: 'predict' # train or predict
+
+train:
+  batch_size: 2
+  num_epochs: 12
+  idx_epoch_switch: 5
+  learning_rate: 0.001
+
+predict:
+  batch_size: 4
+  flag_plot: 1
+

@@ -186,9 +186,9 @@ class DataSet:
 
 
 if __name__ == '__main__':
-    dataset = DataSet(path_csv='../data/train.csv',
-                      path_folder_images='../data/train_images',
-                      path_folder_masks='../data/train_masks',
+    dataset = DataSet(path_csv='/kaggle/input/pku-autonomous-driving/train.csv',
+                      path_folder_images='/kaggle/input/pku-autonomous-driving/train_images',
+                      path_folder_masks='/kaggle/input/pku-autonomous-driving/train_masks',
                       )
     num_items = len(dataset)
 
@@ -207,6 +207,9 @@ if __name__ == '__main__':
 
     # plot
     for idx_item, id in enumerate(dataset.list_ids):
+        if idx_item > 3:
+            continue
         item = dataset.load_item(id)
         item.plot()
-        dummy = 0
+
+    print("=== Finished")
