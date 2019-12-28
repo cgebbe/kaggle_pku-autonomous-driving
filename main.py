@@ -46,14 +46,14 @@ def main():
                                        dataset_torch,
                                        params['train'],
                                        )
-        df_out.to_csv(params['train']['path_csv_out'])
+        df_out.to_csv(params['train']['path_csv_out'], sep=',', index=False)
     elif params['mode'] == 'predict':
         df_out = predict.predict(model,
                                  device,
                                  dataset_torch,
                                  params['predict'],
                                  )
-        df_out.to_csv(params['predict']['path_csv_out'])
+        df_out.to_csv(params['predict']['path_csv_out'], sep=',', index=False)
 
     logger.info("=== Finished")
 
