@@ -31,5 +31,5 @@ def predict(model,
 
     # predictions to csv
     df_out = dataset_torch.dataset.df_cars
-    df_out.loc[0:len(predictions), 'PredictionString'] = predictions
+    df_out.loc[1:len(predictions), 'PredictionString'] = predictions
     return df_out
