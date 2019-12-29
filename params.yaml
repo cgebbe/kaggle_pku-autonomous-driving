@@ -17,7 +17,9 @@ train:
   path_csv_out: 'out_train.csv'
 
 predict:
-  batch_size: 4
+  batch_size: 1
   num_batches_max: 2
+  flag_plot_output: 0
+  flag_plot_item: 0
   path_csv_out: 'out_predict.csv'
 
