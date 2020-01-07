@@ -44,7 +44,7 @@ class Car:
         self.yaw = float(yaw)
         self.pitch = float(pitch)
         self.roll = float(roll)
-        self.id = id # usually id, but different in sample_submission.csv
+        self.id = id  # usually id, but different in sample_submission.csv
 
         # camera matrix K from camera_intrinsic.txt
         self.cam_K = np.array([[2304.5479, 0, 1686.2379],
@@ -186,9 +186,9 @@ class DataSet:
 
 
 if __name__ == '__main__':
-    dataset = DataSet(path_csv='/kaggle/input/pku-autonomous-driving/train.csv',
-                      path_folder_images='/kaggle/input/pku-autonomous-driving/train_images',
-                      path_folder_masks='/kaggle/input/pku-autonomous-driving/train_masks',
+    dataset = DataSet(path_csv='../data/train.csv',
+                      path_folder_images='../data/train_images',
+                      path_folder_masks='../data/train_masks',
                       )
     num_items = len(dataset)
 
