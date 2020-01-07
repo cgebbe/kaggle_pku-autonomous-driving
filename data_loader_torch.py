@@ -35,8 +35,8 @@ class DataSetTorch(torch.utils.data.Dataset):
 
     def __init__(self,
                  dataset,
-                 model_input_height=512,
-                 model_input_width=2048,
+                 model_input_width=1024,
+                 model_input_height=320,
                  model_factor_downsample=8,
                  is_training=True,
                  ):
@@ -60,28 +60,35 @@ class DataSetTorch(torch.utils.data.Dataset):
         img = self.preprocess_img(item.img)
         img = np.rollaxis(img, 2, 0)
 
-        # Get mask and regression maps
+        # Convert car labels to matrix
         if self.is_training:
             mat = self.convert_item_to_mat(item)
-            mask = mat[:, :, 0]
-            regr = mat[:, :, 1:]
-            regr = np.rollaxis(regr, 2, 0)
         else:
-            mask, regr = 0, 0
+            mat = np.zeros(1, 1, 8)
+
+        # perform image augmentation
+        if self.is_training:
+            img, mat = self.augment_img(img, mat)
+
+        # convert img and mat to desired pytorch output
+        mask = mat[:, :, 0]
+        regr = mat[:, :, 1:]
+        regr = np.rollaxis(regr, 2, 0)
 
         return [img, mask, regr]
 
     def preprocess_img(self, img):
-        # crop top and pad both sides horizontally
-        height, width, nchannels = img.shape
-        img_new_shape = (height // 2, width * 2, nchannels)
-        img_new = np.zeros(img_new_shape, dtype=img.dtype)
-        img_new[:, width // 2:width // 2 + width, :] = img[height // 2:, :, :]
+        img = img[img.shape[0] // 2:]  # only use bottom half of image
+        bg = np.ones_like(img) * img.mean(1, keepdims=True).astype(img.dtype)
+        bg = bg[:, :img.shape[1] // 6]  # add 1/6 padding to both sides -> new dims: [50%, 133%]
+        img = np.concatenate([bg, img, bg], 1)
+        img = cv2.resize(img, (self.model_input_width, self.model_input_height))
+        img = img.astype('float32') / 255.0
+        return img
 
-        # resize and rescale features
-        img_new = cv2.resize(img_new, (self.model_input_width, self.model_input_height))
-        img_new = img_new.astype('float32') / 255.0
-        return img_new
+    def augment_img(self, img, mat):
+        # horizontal flip - TODO
+        return img, mat
 
     def convert_item_to_mat(self, item):
         # create empty mat with 8 channels for

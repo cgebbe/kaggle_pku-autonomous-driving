@@ -103,7 +103,7 @@ def train(model,
         gc.collect()
         model.train()
 
-        data_loader_train_tqdm = tqdm(data_loader_train)
+        data_loader_train_tqdm =
         for batch_idx, (img_batch, mask_batch, regr_batch) in enumerate(data_loader_train_tqdm):
             img_batch = img_batch.to(device)
             mask_batch = mask_batch.to(device)
