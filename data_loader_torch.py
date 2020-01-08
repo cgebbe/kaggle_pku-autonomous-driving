@@ -108,29 +108,29 @@ class DataSetTorch(torch.utils.data.Dataset):
             if 0 <= u and u < mat.shape[1]:
                 if 0 <= v and v < mat.shape[0]:
                     mat[v, u, 0] = 1  # confidence
-                    mat[v, u, 1] = car.x
-                    mat[v, u, 2] = car.y
-                    mat[v, u, 3] = car.z
-                    mat[v, u, 4] = car.yaw
-                    mat[v, u, 5] = math.sin(car.pitch)
-                    mat[v, u, 6] = math.cos(car.pitch)
-                    mat[v, u, 7] = convert_roll_to_roll_new(car.roll)
+                    mat[v, u, 1] = math.cos(car.yaw)
+                    mat[v, u, 2] = math.sin(car.yaw)
+                    mat[v, u, 3] = convert_roll_to_roll_new(car.roll)
+                    mat[v, u, 4] = car.x / 100.
+                    mat[v, u, 5] = car.y / 100.
+                    mat[v, u, 6] = car.pitch
+                    mat[v, u, 7] = car.z / 100.
         return mat
 
     def convert_mat_to_item(self, mat, distance_min=2):
-        def calc_pitch_from_sin_cos(pitch_sin, pitch_cos):
-            checksum = np.sqrt(pitch_sin ** 2 + pitch_cos ** 2)
-            pitch_sin = pitch_sin / checksum
-            pitch_cos = pitch_cos / checksum
-            pitch = np.arccos(pitch_cos) * np.sign(pitch_sin)
+        def calc_angle_from_sin_cos(angle_sin, angle_cos):
+            checksum = np.sqrt(angle_sin ** 2 + angle_cos ** 2)
+            angle_sin = angle_sin / checksum
+            angle_cos = angle_cos / checksum
+            pitch = np.arccos(angle_cos) * np.sign(angle_sin)
             return pitch
 
         # extract uv coords, where confidence > 0
         vs, us = np.where(mat[:, :, 0] > 0)
-        confidences = mat[vs, us, 0]
+        logits = mat[vs, us, 0]
 
         # clear points which are close together.
-        idx_sorted = np.argsort(confidences)[::-1]
+        idx_sorted = np.argsort(logits)[::-1]
         for idx1 in idx_sorted:
             v1, u1 = vs[idx1], us[idx1]
             for idx2 in idx_sorted:
@@ -140,23 +140,23 @@ class DataSetTorch(torch.utils.data.Dataset):
                     v2, u2 = vs[idx2], us[idx2]
                     distance = (u1 - u2) ** 2 + (v1 - v2) ** 2
                     if distance < distance_min ** 2:
-                        confidences[idx2] = -1
+                        logits[idx2] = -1
 
         # create cars
         item = data_loader.DataItem()
         item.cars = []
         for idx in idx_sorted:
-            if confidences[idx] > 0:
+            if logits[idx] > 0:
                 v, u = vs[idx], us[idx]
-                pitch_sin = mat[v, u, 5]
-                pitch_cos = mat[v, u, 6]
-                pitch = calc_pitch_from_sin_cos(pitch_sin, pitch_cos)
-                car = data_loader.Car(mat[v, u, 1],
-                                      mat[v, u, 2],
-                                      mat[v, u, 3],
-                                      mat[v, u, 4],
-                                      pitch,
-                                      convert_roll_new_to_roll(mat[v, u, 7]),
+                yaw_cos = mat[v, u, 1]
+                yaw_sin = mat[v, u, 2]
+                yaw = calc_angle_from_sin_cos(yaw_sin, yaw_cos)
+                car = data_loader.Car(mat[v, u, 4] * 100,
+                                      mat[v, u, 5] * 100,
+                                      mat[v, u, 7] * 100,
+                                      yaw,
+                                      mat[v, u, 6],
+                                      convert_roll_new_to_roll(mat[v, u, 3]),
                                       mat[v, u, 0],  # abusing id for confidence
                                       )
                 item.cars.append(car)
@@ -170,11 +170,11 @@ class DataSetTorch(torch.utils.data.Dataset):
         u, v = uv[0], uv[1]
         height, width, nchannels = img_org.shape
         v -= height // 2  # crop top
-        u += width // 2  # add padding to both sides
-
-        # take into account resizing of original image
+        u += width // 6  # add padding to both sides
         height_new = height // 2
-        width_new = width * 2
+        width_new = width * (1 + 2 / 6)
+
+        # take into account resizing of original image to match model input size
         u = u / width_new * self.model_input_width
         v = v / height_new * self.model_input_height
 
@@ -189,9 +189,9 @@ class DataSetTorch(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    dataset = data_loader.DataSet(path_csv='/kaggle/input/pku-autonomous-driving/train.csv',
-                                  path_folder_images='/kaggle/input/pku-autonomous-driving/train_images',
-                                  path_folder_masks='/kaggle/input/pku-autonomous-driving/train_masks',
+    dataset = data_loader.DataSet(path_csv='../data/train.csv',
+                                  path_folder_images='../data/train_images',
+                                  path_folder_masks='../data/train_masks',
                                   )
     dataset_torch = DataSetTorch(dataset)
     [img, mask, regr] = dataset_torch[0]
@@ -209,5 +209,6 @@ if __name__ == '__main__':
     ax[2].imshow(regr[:, :, 0])
     fig.tight_layout()
     plt.show()
+    fig.savefig("output/plot.png")
 
     print("=== Finished")

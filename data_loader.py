@@ -44,7 +44,7 @@ class Car:
         self.yaw = float(yaw)
         self.pitch = float(pitch)
         self.roll = float(roll)
-        self.id = id  # usually id, but different in sample_submission.csv
+        self.id = id # usually int, but abused as float logits value when predicting
 
         # camera matrix K from camera_intrinsic.txt
         self.cam_K = np.array([[2304.5479, 0, 1686.2379],
@@ -105,7 +105,7 @@ class DataItem:
                       values[idx_car * 7 + 2],  # yaw
                       values[idx_car * 7 + 1],  # pitch
                       values[idx_car * 7 + 3],  # roll
-                      values[idx_car * 7 + 0],
+                      values[idx_car * 7 + 0],  # id
                       )
             self.cars.append(car)
 
@@ -117,6 +117,7 @@ class DataItem:
                 confidence = 1 / (1 + np.exp(-car.id))
                 assert (0 <= confidence and confidence <= 1), "confidence not in [0,1]"
                 values.extend([car.pitch, car.yaw, car.roll, car.x, car.y, car.z, confidence])
+                # values.extend([car.yaw, car.pitch, car.roll, car.x, car.y, car.z, confidence])
             else:
                 values.extend([car.id, car.pitch, car.yaw, car.roll, car.x, car.y, car.z])
         values = [str(x) for x in values]
@@ -135,7 +136,7 @@ class DataItem:
 
         # show result
         fig.tight_layout()
-        plt.show()
+        return fig, ax
 
 
 class DataSet:
@@ -210,6 +211,7 @@ if __name__ == '__main__':
         if idx_item > 3:
             continue
         item = dataset.load_item(id)
-        item.plot()
+        fig,ax = item.plot()
+        fig.savefig('output/plot_data_loader.png')
 
     print("=== Finished")

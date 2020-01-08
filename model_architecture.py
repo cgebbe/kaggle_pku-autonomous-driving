@@ -61,7 +61,11 @@ class up(nn.Module):
         return x
 
 
-def get_mesh(batch_size, shape_x, shape_y):
+def get_mesh(batch_size,
+             shape_x,
+             shape_y,
+             device,
+             ):
     mg_x, mg_y = np.meshgrid(np.linspace(0, 1, shape_y), np.linspace(0, 1, shape_x))
     mg_x = np.tile(mg_x[None, None, :, :], [batch_size, 1, 1, 1]).astype('float32')
     mg_y = np.tile(mg_y[None, None, :, :], [batch_size, 1, 1, 1]).astype('float32')
@@ -97,7 +101,7 @@ class MyUNet(nn.Module
                 IMG_WIDTH=1024,
                 ):
         batch_size = x.shape[0]
-        mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3])
+        mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3], self.device)
         x0 = torch.cat([x, mesh1], 1)
         x1 = self.mp(self.conv0(x0))
         x2 = self.mp(self.conv1(x1))
@@ -110,7 +114,7 @@ class MyUNet(nn.Module
         feats = torch.cat([bg, feats, bg], 3)
 
         # Add positional info
-        mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3])
+        mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3], self.device)
         feats = torch.cat([feats, mesh2], 1)
 
         x = self.up1(feats, x4)

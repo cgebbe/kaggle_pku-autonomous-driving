@@ -20,7 +20,10 @@ def test_item_to_mat_conversion():
     NOT testing item > mat > item, because comparing items more tedious (first need association!),
     """
     # get "original" mat
-    dataset = data_loader.DataSet('../data/train')
+    dataset = data_loader.DataSet(path_csv='../data/train.csv',
+                                  path_folder_images='../data/train_images',
+                                  path_folder_masks='../data/train_masks',
+                                  )
     list_ids = dataset.list_ids
     item_org = dataset.load_item(list_ids[0], flag_load_mask=False)
     dataset_torch = data_loader_torch.DataSetTorch(dataset)

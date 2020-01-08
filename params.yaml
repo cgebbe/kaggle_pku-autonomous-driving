@@ -3,27 +3,38 @@ model:
   input_height: 320 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 8
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: 'output/model_11.pth'
+  path_weights: 'output/20200107_rusian_org/model.pth'
+  #path_weights: 'output/20191222_koala/model_11.pth'
 
+datasets:
+  train:
+    path_csv: '../data/train_train.csv'
+    path_folder_images: '../data/train_images'
+    path_folder_masks: '../data/train_masks'
+  valid:
+    path_csv: '../data/train_valid.csv'
+    path_folder_images: '../data/train_images'
+    path_folder_masks: '../data/train_masks'
+  test:
+    path_csv: '../data/sample_submission.csv'
+    path_folder_images: '../data/test_images'
+    path_folder_masks: '../data/test_masks'
 
-dataset:
-  path_csv: '/kaggle/input/pku-autonomous-driving/train.csv'
-  path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
-  path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
 
 mode: 'predict' # train or predict
 
 train:
   batch_size: 2
+  batch_size_eval: 4
   num_epochs: 10
   idx_epoch_switch: 0
   learning_rate: 0.001
-  path_csv_out: 'out_train.csv'
 
 predict:
   batch_size: 1
-  num_batches_max: 2
-  flag_plot_output: 0
-  flag_plot_item: 0
-  path_csv_out: 'out_predict.csv'
+  num_batches_max: 9999999
+  flag_plot_item: 1
+
+path_folder_out: 'output'
+
 
