@@ -103,7 +103,8 @@ class DataSetTorch(torch.utils.data.Dataset):
         # fill in matrixes
         for car in item.cars:
             uv_center = car.get_uv_center()
-            uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img)
+            uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
+            uv_new = np.round(uv_new).astype(int) # round floats to int
             u, v = uv_new[0], uv_new[1]
             if 0 <= u and u < mat.shape[1]:
                 if 0 <= v and v < mat.shape[0]:
@@ -158,17 +159,19 @@ class DataSetTorch(torch.utils.data.Dataset):
                                       mat[v, u, 6],
                                       convert_roll_new_to_roll(mat[v, u, 3]),
                                       mat[v, u, 0],  # abusing id for confidence
+                                      u=u,
+                                      v=v,
                                       )
                 item.cars.append(car)
 
         return item
 
-    def convert_uv_to_uv_preprocessed(self, uv, img_org):
+    def convert_uv_to_uv_preprocessed(self, uv, img_org_shape):
         ''' Problem: Preprocessing image changes uv coordinates. What are new uv-coords?
         '''
         # take into account top cropping and side padding
         u, v = uv[0], uv[1]
-        height, width, nchannels = img_org.shape
+        height, width, nchannels = img_org_shape
         v -= height // 2  # crop top
         u += width // 6  # add padding to both sides
         height_new = height // 2
@@ -184,7 +187,6 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # round up to be a pixel value
         uv = np.array([u, v])
-        uv = np.round(uv).astype(int)
         return uv
 
 

@@ -29,7 +29,6 @@ def xyz2uv(xyz, K):
     assert xyz.shape[0] == 3
     uvl = np.dot(K, xyz)
     uv = uvl[0:2] / uvl[2]
-    uv = np.round(uv).astype(np.int)
     return uv
 
 
@@ -37,7 +36,7 @@ class Car:
     """ xyz in camera coordinate system
     """
 
-    def __init__(self, x, y, z, yaw, pitch, roll, id=None):
+    def __init__(self, x, y, z, yaw, pitch, roll, id, u=None, v=None):
         self.x = float(x)
         self.y = float(y)
         self.z = float(z)
@@ -45,6 +44,8 @@ class Car:
         self.pitch = float(pitch)
         self.roll = float(roll)
         self.id = id # usually int, but abused as float logits value when predicting
+        self.u = u
+        self.v = v
 
         # camera matrix K from camera_intrinsic.txt
         self.cam_K = np.array([[2304.5479, 0, 1686.2379],
@@ -54,6 +55,7 @@ class Car:
     def get_uv_center(self):
         xyz_center = np.array([self.x, self.y, self.z]).T  # 3x1 vector
         uv_center = xyz2uv(xyz_center, self.cam_K)
+        uv_center = np.round(uv_center).astype(np.int)
         return uv_center
 
     def plot(self, ax):
@@ -76,6 +78,7 @@ class Car:
         Rt[0:3, 3] = np.array([self.x, self.y, self.z]).T  # 3x1 vector
         xyz_corners_rot = np.dot(Rt, xyz_corners)
         uv_corners = xyz2uv(xyz_corners_rot, self.cam_K)
+        uv_corners = np.round(uv_corners).astype(np.int)
         ax.plot(uv_corners[0, :], uv_corners[1, :], color='red')
 
 

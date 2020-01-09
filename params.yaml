@@ -3,8 +3,9 @@ model:
   input_height: 320 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 8
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: 'output/20200107_rusian_org/model.pth'
   #path_weights: 'output/20191222_koala/model_11.pth'
+  #path_weights: 'output/20200106_rusian_org/model.pth'
+  path_weights: 'output/20200107_rusian_my_notebook/model.pth'
 
 datasets:
   train:
@@ -33,7 +34,9 @@ train:
 predict:
   batch_size: 1
   num_batches_max: 9999999
-  flag_plot_item: 1
+  flag_optimize: 1 # adapt x,y,z to predicted u,v
+  flag_plot_mat: 0
+  flag_plot_item: 0
 
 path_folder_out: 'output'
 
