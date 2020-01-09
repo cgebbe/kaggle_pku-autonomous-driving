@@ -10,16 +10,14 @@ import scipy
 import scipy.optimize
 
 
-def optimize_xy(v_logit, u_logit, x0, y0, z0, flipped=False):
+def optimize_xyz(v_pred, u_pred, x0, y0, z0, params):
     def distance_fn(xyz):
         # constants
         IMG_SHAPE = (2710, 3384, 3)  # img.shape
 
         # calculate slope error
         x, y, z = xyz
-        xx = -x if flipped else x
-        # y_pred = xzy_slope.predict([[xx, z]])[0]
-        y_pred = 1.0392211185855782 + 0.05107277 * xx + 0.16864302 * z  # from notebook
+        y_pred = 1.0392211185855782 + 0.05107277 * x + 0.16864302 * z  # from notebook
         slope_err = (y_pred - y) ** 2
 
         # calculate u,v
@@ -28,22 +26,12 @@ def optimize_xy(v_logit, u_logit, x0, y0, z0, flipped=False):
                           [0, 0, 1]], dtype=np.float32)
         xyz = np.array([x, y, z])
         uv = data_loader.xyz2uv(xyz, cam_K)
-        dataset_torch = data_loader_torch.DataSetTorch(None)
+        dataset_torch = data_loader_torch.DataSetTorch(None, params)
         uv_new = dataset_torch.convert_uv_to_uv_preprocessed(uv, IMG_SHAPE)
         u_new, v_new = uv_new[0], uv_new[1]
 
-        if False:
-            # check with original conversion from uv to uv_preprocessed
-            IMG_WIDTH = 1024
-            IMG_HEIGHT = IMG_WIDTH // 16 * 5
-            MODEL_SCALE = 8
-            u, v = uv[0], uv[1]
-            u_new2 = (u + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] * 4 / 3) / MODEL_SCALE
-            v_new2 = (v - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
-            assert np.allclose(u_new, u_new2)
-            assert np.allclose(v_new, v_new2)
-
-        distance = (max(0.2, (v_new - v_logit) ** 2 + (u_new - u_logit) ** 2)
+        # calc distance
+        distance = (max(0.2, (v_new - v_pred) ** 2 + (u_new - u_pred) ** 2)
                     + max(0.4, slope_err))
         return distance
 
@@ -62,7 +50,10 @@ def predict(model,
         path_folder_images=params['datasets']['test']['path_folder_images'],
         path_folder_masks=params['datasets']['test']['path_folder_masks'],
     )
-    dataset_torch_test = data_loader_torch.DataSetTorch(dataset_test)
+    dataset_torch_test = data_loader_torch.DataSetTorch(dataset_test, params,
+                                                        flag_load_label=False,
+                                                        flag_augment=False,
+                                                        )
     data_loader_test = torch.utils.data.DataLoader(dataset=dataset_torch_test,
                                                    batch_size=params['predict']['batch_size'],
                                                    shuffle=False,
@@ -110,16 +101,11 @@ def predict(model,
             # convert mat to item and plot.
             item = dataset_torch_test.convert_mat_to_item(mat)
             if params['predict']['flag_optimize']:
-                for car in item.cars:
-                    x_new, y_new, z_new = optimize_xy(car.v,
-                                                      car.u,
-                                                      car.x,
-                                                      car.y,
-                                                      car.z
-                                                      )
-                    car.x = x_new
-                    car.y = y_new
-                    car.z = z_new
+                for idx_car, car in enumerate(item.cars):
+                    x_new, y_new, z_new = optimize_xyz(car.v, car.u, car.x, car.y, car.z, params)
+                    item.cars[idx_car].x = x_new
+                    item.cars[idx_car].y = y_new
+                    item.cars[idx_car].z = z_new
 
             if params['predict']['flag_plot_item']:
                 id = dataset_test.df_cars.loc[idx_batch, 'ImageId']

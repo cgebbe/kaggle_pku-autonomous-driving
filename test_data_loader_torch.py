@@ -20,13 +20,18 @@ def test_item_to_mat_conversion():
     NOT testing item > mat > item, because comparing items more tedious (first need association!),
     """
     # get "original" mat
+    params = {'model': {'factor_downsample': 4,
+                        'input_height': 512,
+                        'input_width': 1536,
+                        },
+              }
     dataset = data_loader.DataSet(path_csv='../data/train.csv',
                                   path_folder_images='../data/train_images',
                                   path_folder_masks='../data/train_masks',
                                   )
     list_ids = dataset.list_ids
     item_org = dataset.load_item(list_ids[0], flag_load_mask=False)
-    dataset_torch = data_loader_torch.DataSetTorch(dataset)
+    dataset_torch = data_loader_torch.DataSetTorch(dataset, params)
     mat_org = dataset_torch.convert_item_to_mat(item_org)
 
     # convert back

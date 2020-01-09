@@ -29,9 +29,8 @@ class double_conv(nn.Module):
 class up(nn.Module):
     def __init__(self, in_ch, out_ch, bilinear=True):
         super(up, self).__init__()
-
         #  would be a nice idea if the upsampling could be learned too,
-        #  but my machine do not have enough memory to handle all those weights
+        #  but my machine does not have enough memory to handle all those weights
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         else:
@@ -80,7 +79,11 @@ class MyUNet(nn.Module
     def __init__(self,
                  n_classes,
                  device,
+                 params,
                  ):
+        self.params = params
+        assert params['model']['factor_downsample'] in [4,8], 'downsample factor not known'
+
         super(MyUNet, self).__init__()
         self.device = device
         self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
@@ -92,14 +95,16 @@ class MyUNet(nn.Module
 
         self.mp = nn.MaxPool2d(2)
 
-        self.up1 = up(1282 + 1024, 512)
-        self.up2 = up(512 + 512, 256)
+        self.up1 = up(1282 + 1024, 512) # feats = 1282, x4 = 1024
+        self.up2 = up(512 + 512, 256) # x3 = 512
+        if self.params['model']['factor_downsample'] == 4:
+            self.up3 = up(256 + 128, 256) # x2 = 128
         self.outc = nn.Conv2d(256, n_classes, 1)
 
     def forward(self,
                 x,
-                IMG_WIDTH=1024,
                 ):
+        # simply perform 4x double convolution + max-pooling
         batch_size = x.shape[0]
         mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3], self.device)
         x0 = torch.cat([x, mesh1], 1)
@@ -108,17 +113,19 @@ class MyUNet(nn.Module
         x3 = self.mp(self.conv2(x2))
         x4 = self.mp(self.conv3(x3))
 
-        x_center = x[:, :, :, IMG_WIDTH // 8: -IMG_WIDTH // 8]
+        # in parallel, extract features using base model on center image (because rest is padding)
+        img_width = x.shape[3]
+        x_center = x[:, :, :, img_width // 8: -img_width // 8]
         feats = self.base_model.extract_features(x_center)
         bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8]).to(self.device)
         feats = torch.cat([bg, feats, bg], 3)
-
-        # Add positional info
         mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3], self.device)
-        feats = torch.cat([feats, mesh2], 1)
+        feats = torch.cat([feats, mesh2], 1)  # add positional info via mesh
 
-        x = self.up1(feats, x4)
-        x = self.up2(x, x3)
+        x = self.up1(feats, x4)  # upsample feat and concat result with x4
+        x = self.up2(x, x3)  # upsample x and concat result with x3
+        if self.params['model']['factor_downsample'] == 4:
+            x = self.up3(x, x2)  # upsample x and concat result with x2
         x = self.outc(x)
         return x
 
@@ -129,8 +136,12 @@ if __name__ == '__main__':
     print(device)
 
     # define model and test inference with dummy data
-    model = MyUNet(8, device).to(device)
-    img_batch = torch.randn((1, 3, 320, 1024))
+    params = {'model': {'factor_downsample': 4}}
+    width = 1536  # 1536  # 1024
+    height = 512  # 512  # 320
+    model = MyUNet(8, device, params).to(device)
+    img_batch = torch.randn((1, 3, height, width))
     mat_pred = model(img_batch.to(device))
     print(mat_pred)
+    print(mat_pred.shape)
     print('=== Finished')

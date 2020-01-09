@@ -4,8 +4,6 @@ import logging
 import os
 
 import model_architecture
-import data_loader_torch
-import data_loader
 import train
 import predict
 
@@ -17,11 +15,17 @@ def main():
     with open("params.yaml", 'r') as stream:
         params = yaml.safe_load(stream)
 
+    # TODO - setup logging
+
+    # create output folder
+    os.makedirs(params['path_folder_out'], exist_ok=True)
+
     # load model
     assert torch.cuda.is_available(), "cuda device is not available"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info('Working on device={}'.format(device))
-    model = model_architecture.MyUNet(8, device).to(device)
+    num_classes = 8
+    model = model_architecture.MyUNet(num_classes, device, params).to(device)
     path_weights = params['model']['path_weights']
     if path_weights:
         assert os.path.isfile(path_weights), "path_weights does not exist as a file"
@@ -33,8 +37,6 @@ def main():
                              device,
                              params,
                              )
-        path_csv = os.path.join(params['path_folder_out'], 'train_history.csv')
-        df_out.to_csv(path_csv, sep=';')
     elif params['mode'] == 'predict':
         df_out = predict.predict(model,
                                  device,

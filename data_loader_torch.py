@@ -35,16 +35,17 @@ class DataSetTorch(torch.utils.data.Dataset):
 
     def __init__(self,
                  dataset,
-                 model_input_width=1024,
-                 model_input_height=320,
-                 model_factor_downsample=8,
-                 is_training=True,
+                 params,
+                 flag_load_label=True,
+                 flag_augment=True,
                  ):
         self.dataset = dataset
-        self.is_training = is_training
-        self.factor_downsample = model_factor_downsample
-        self.model_input_height = model_input_height
-        self.model_input_width = model_input_width
+        self.flag_load_label = flag_load_label
+        self.flag_augment = flag_augment
+        self.factor_downsample = params['model']['factor_downsample']
+        self.model_input_height = params['model']['input_height']
+        self.model_input_width = params['model']['input_width']
+        self.params = params
 
     def __len__(self):
         return len(self.dataset)
@@ -54,20 +55,20 @@ class DataSetTorch(torch.utils.data.Dataset):
         if torch.is_tensor(idx_item):
             idx_item = idx_item.tolist()
         id = self.dataset.list_ids[idx_item]
-        item = self.dataset.load_item(id)
+        item = self.dataset.load_item(id, flag_load_car=self.flag_load_label)
 
         # preprocess image
         img = self.preprocess_img(item.img)
         img = np.rollaxis(img, 2, 0)
 
         # Convert car labels to matrix
-        if self.is_training:
+        if self.flag_load_label:
             mat = self.convert_item_to_mat(item)
         else:
             mat = np.zeros(1, 1, 8)
 
         # perform image augmentation
-        if self.is_training:
+        if self.flag_augment:
             img, mat = self.augment_img(img, mat)
 
         # convert img and mat to desired pytorch output
@@ -104,7 +105,7 @@ class DataSetTorch(torch.utils.data.Dataset):
         for car in item.cars:
             uv_center = car.get_uv_center()
             uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
-            uv_new = np.round(uv_new).astype(int) # round floats to int
+            uv_new = np.round(uv_new).astype(int)  # round floats to int
             u, v = uv_new[0], uv_new[1]
             if 0 <= u and u < mat.shape[1]:
                 if 0 <= v and v < mat.shape[0]:
@@ -116,9 +117,31 @@ class DataSetTorch(torch.utils.data.Dataset):
                     mat[v, u, 5] = car.y / 100.
                     mat[v, u, 6] = car.pitch
                     mat[v, u, 7] = car.z / 100.
+
+        # in case of focal loss usage, create heatmap for each car
+        if self.params['train']['loss']['flag_focal_loss']:
+            mat[:, :, 0] = 0  # reset confidence values to 0
+            height = mat.shape[0]
+            width = mat.shape[1]
+            vs, us = np.meshgrid(np.arange(height), np.arange(width))
+            for car in item.cars:
+                uv_center = car.get_uv_center()
+                uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
+                uv_new = np.round(uv_new).astype(int)  # round floats to int
+                u, v = uv_new[0], uv_new[1]
+
+                # choose sigma s.t. sigma = 2px at 10m and 8x downsample (40x128)
+                sigma = 2 * 10 / car.z * 8 / self.factor_downsample
+
+                heatmap = np.exp(- ((us - u) ** 2 + (vs - v) ** 2) / (2.0 * sigma))
+                heatmap = np.clip(heatmap, 0, 1)
+                mat[:, :, 0] += heatmap
+
         return mat
 
-    def convert_mat_to_item(self, mat, distance_min=2):
+    def convert_mat_to_item(self, mat):
+        distance_min = 2 * 8 / self.factor_downsample  # usually 2, but increases to 4
+
         def calc_angle_from_sin_cos(angle_sin, angle_cos):
             checksum = np.sqrt(angle_sin ** 2 + angle_cos ** 2)
             angle_sin = angle_sin / checksum
@@ -158,7 +181,7 @@ class DataSetTorch(torch.utils.data.Dataset):
                                       yaw,
                                       mat[v, u, 6],
                                       convert_roll_new_to_roll(mat[v, u, 3]),
-                                      mat[v, u, 0],  # abusing id for confidence
+                                      mat[v, u, 0],  # abusing id for logit
                                       u=u,
                                       v=v,
                                       )
@@ -185,17 +208,23 @@ class DataSetTorch(torch.utils.data.Dataset):
         u /= self.factor_downsample
         v /= self.factor_downsample
 
-        # round up to be a pixel value
+        # return
         uv = np.array([u, v])
         return uv
 
 
 if __name__ == '__main__':
+    params = {'model': {'factor_downsample': 4,
+                        'input_height': 320,
+                        'input_width': 1024,
+                        'loss': {'flag_focal_loss': 1}
+                        },
+              }
     dataset = data_loader.DataSet(path_csv='../data/train.csv',
                                   path_folder_images='../data/train_images',
                                   path_folder_masks='../data/train_masks',
                                   )
-    dataset_torch = DataSetTorch(dataset)
+    dataset_torch = DataSetTorch(dataset, params)
     [img, mask, regr] = dataset_torch[0]
 
     # reverse rolling backwards

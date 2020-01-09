@@ -1,11 +1,11 @@
 model:
   input_width: 1024
   input_height: 320 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
-  factor_downsample: 8
+  factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
   #path_weights: 'output/20191222_koala/model_11.pth'
   #path_weights: 'output/20200106_rusian_org/model.pth'
-  path_weights: 'output/20200107_rusian_my_notebook/model.pth'
+  path_weights: #'output/20200107_rusian_my_notebook/model.pth'
 
 datasets:
   train:
@@ -22,22 +22,25 @@ datasets:
     path_folder_masks: '../data/test_masks'
 
 
-mode: 'predict' # train or predict
+mode: 'train' # train or predict
 
 train:
   batch_size: 2
   batch_size_eval: 4
   num_epochs: 10
   idx_epoch_switch: 0
-  learning_rate: 0.001
+  learning_rate: 0.002
+  loss:
+    flag_focal_loss: 0
+    flag_size_average: 1
 
 predict:
   batch_size: 1
   num_batches_max: 9999999
-  flag_optimize: 1 # adapt x,y,z to predicted u,v
+  flag_optimize: 1 # modify x,y,z using predicted u,v
   flag_plot_mat: 0
   flag_plot_item: 0
 
-path_folder_out: 'output'
+path_folder_out: 'output/20200109_img_larger'
 
 
