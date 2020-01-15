@@ -59,6 +59,6 @@ predict:
   flag_plot_item: 0
 
 #path_folder_out: '../output/20200110_img_larger_v3/model_7'
-path_folder_out: '../output/20200112_focal_loss_v2/model_6'
+path_folder_out: '20200112_focal_loss_v2/model_6'
 
 
