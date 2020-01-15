@@ -6,6 +6,17 @@ import cv2
 import math
 import matplotlib.pyplot as plt
 import albumentations
+import scripts.flip_image_hor
+
+
+def reduce_saturation(img, sat_shift_range=(-0.5, 0)):
+    sat_shift = np.random.uniform(sat_shift_range[0], sat_shift_range[1])
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hue, sat, val = cv2.split(img)
+    sat_new = np.clip(cv2.add(sat, sat_shift), 0, 1.0)
+    img = cv2.merge((hue, sat_new, val)).astype(img.dtype)
+    img = cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
+    return img
 
 
 def convert_roll_to_roll_new(roll):
@@ -92,36 +103,40 @@ class DataSetTorch(torch.utils.data.Dataset):
         """ horizontal flip, random brightness, gaussian noise and contrast
         img already in float32 format, not uint8
         """
-        return img, mat
 
         # horizontal flip - TODO
-        if True:
-            mat_augmented = mat
+        p_flip = np.random.uniform()  # in [0,1)
+        if p_flip > 0.33:
+            cx = 1686.2379
+            img_flipped = scripts.flip_image_hor.flip_hor_at_u(img, cx)
+            mat_flipped = scripts.flip_image_hor.flip_hor_at_u(mat, cx)
+
         else:
+            img_flipped = img
             mat_augmented = mat
 
+        # grayish - change HSV values
+        p_sat = np.random.uniform()  # in [0,1)
+        if p_sat > 0.33:
+            img_desat = reduce_saturation(img, sat_shift_range=(-0.15, 0))
+        else:
+            img_desat = img
+
         # gamma change
-        aug1 = albumentations.RandomGamma(gamma_limit=(80, 120),
-                                          p=1,
+        aug1 = albumentations.RandomGamma(gamma_limit=(70, 130),
+                                          p=0.33,
                                           )
 
         # gaussian noise
-        aug2 = albumentations.MultiplicativeNoise(multiplier=(0.75, 1.25),
+        aug2 = albumentations.MultiplicativeNoise(multiplier=(0.85, 1.15),
                                                   elementwise=True,
                                                   per_channel=True,
-                                                  p=1,
+                                                  p=0.33,
                                                   )
 
-        # grayish - change HSV values
-        aug3 = albumentations.HueSaturationValue(hue_shift_limit=(0, 0),
-                                                 sat_shift_limit=(-0, 0),
-                                                 val_shift_limit=(0, 0),
-                                                 p=1,
-                                                 )
-
         # apply all augmentations to image
-        aug_tot = albumentations.Compose([aug3], p=1)
-        img_augmented = aug_tot(image=img)['image']
+        aug_tot = albumentations.Compose([aug1, aug2], p=1)
+        img_augmented = aug_tot(image=img_desat)['image']
 
         # for debugging purposes
         if True:

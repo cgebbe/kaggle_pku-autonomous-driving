@@ -55,7 +55,7 @@ predict:
   batch_size: 1
   num_batches_max: 99999999
   flag_optimize: 1 # modify x,y,z using predicted u,v and y(x,z) fit
-  flag_plot_mat: 1
+  flag_plot_mat: 0
   flag_plot_item: 1
 
 #path_folder_out: '../output/20200110_img_larger_v3/model_7'
