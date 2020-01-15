@@ -110,7 +110,6 @@ class DataSetTorch(torch.utils.data.Dataset):
             cx = 1686.2379
             img_flipped = scripts.flip_image_hor.flip_hor_at_u(img, cx)
             mat_flipped = scripts.flip_image_hor.flip_hor_at_u(mat, cx)
-
         else:
             img_flipped = img
             mat_augmented = mat
