@@ -3,8 +3,9 @@ model:
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: '../output/20200112_focal_loss_v2/model_6.pth' #'../output/20200110_img_larger_v3/model_7.pth'
+  #path_weights: '../output/20200112_focal_loss_v2/model_6.pth' #'../output/20200110_img_larger_v3/model_7.pth'
   #path_weights: '../output/20200112_focal_loss/model_11.pth'
+  path_weights: 'model.pth'
   flag_use_dummy_model: 0
 
 datasets_org:
