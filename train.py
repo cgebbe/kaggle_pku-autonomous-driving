@@ -166,12 +166,18 @@ def train(model,
         path_folder_images=params['datasets']['train']['path_folder_images'],
         path_folder_masks=params['datasets']['train']['path_folder_masks'],
     )
-    dataset_torch = data_loader_torch.DataSetTorch(dataset, params)
-    dataset_loader = torch.utils.data.DataLoader(dataset=dataset_torch,
-                                                 batch_size=params['train']['batch_size'],
-                                                 shuffle=True,
-                                                 num_workers=0,
-                                                 )
+    dataset_torch = data_loader_torch.DataSetTorch(
+        dataset,
+        params,
+        flag_load_label=True,
+        flag_augment=params['train']['use_augmentation'],
+    )
+    dataset_loader = torch.utils.data.DataLoader(
+        dataset=dataset_torch,
+        batch_size=params['train']['batch_size'],
+        shuffle=True,
+        num_workers=0,
+    )
 
     # define optimizer and decrease learning rate by 0.1 every 3 epochs
     optimizer = torch.optim.AdamW(model.parameters(),

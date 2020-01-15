@@ -8,13 +8,20 @@ import model_architecture
 import train
 import predict
 
+# parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--path_yaml',
+                    default='params.yaml',
+                    )
+args = parser.parse_args()
+
 # setup logger - TODO: right format and save log in output folder
 logger = logging.getLogger('main')
 
 
 def main():
     # load params
-    with open("params.yaml", 'r') as stream:
+    with open(args.path_yaml, 'r') as stream:
         params = yaml.safe_load(stream)
 
     # create output folder

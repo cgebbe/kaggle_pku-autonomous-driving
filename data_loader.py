@@ -197,6 +197,9 @@ class DataSet:
             path_mask = os.path.join(self.path_folder_masks, id + '.jpg')
             try:
                 item.mask = cv2.imread(path_mask)
+                mask_bool_per_channel = item.mask > 127
+                mask_bool = np.all(mask_bool_per_channel, axis=-1)
+                item.img[mask_bool] = [255, 0, 255]
             except:
                 logger.warning('Mask not found for id {}'.format(id))
 
@@ -232,10 +235,11 @@ if __name__ == '__main__':
 
     # plot
     for idx_item, id in enumerate(dataset.list_ids):
-        if idx_item > 3:
+        if idx_item > 10:
             continue
-        item = dataset.load_item(id)
+        item = dataset.load_item(id, flag_load_mask=True)
         fig, ax = item.plot()
-        fig.savefig('output/plot_data_loader.png')
+        plt.show()
+        # fig.savefig('output/plot_data_loader.png')
 
     print("=== Finished")

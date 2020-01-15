@@ -9,7 +9,7 @@ model:
   flag_use_dummy_model: 0
 
 datasets_org:
-  flag_use_mask: 1
+  flag_use_mask: 0
   train:
     path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
     path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
@@ -24,7 +24,7 @@ datasets_org:
     path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
 
 datasets:
-  flag_use_mask: 1
+  flag_use_mask: 0
   train:
     path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
     path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
@@ -39,10 +39,10 @@ datasets:
     path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
 
 
-mode: 'predict' # train or predict
+mode: 'train' # train or predict
 
 train:
-  use_augmentation: 1
+  use_augmentation: 0
   batch_size: 2
   batch_size_eval: 4
   num_epochs: 12

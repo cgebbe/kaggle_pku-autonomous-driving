@@ -67,7 +67,10 @@ class DataSetTorch(torch.utils.data.Dataset):
         if torch.is_tensor(idx_item):
             idx_item = idx_item.tolist()
         id = self.dataset.list_ids[idx_item]
-        item = self.dataset.load_item(id, flag_load_car=self.flag_load_label)
+        item = self.dataset.load_item(id,
+                                      flag_load_car=self.flag_load_label,
+                                      flag_load_mask=self.params['datasets']['flag_use_mask'],
+                                      )
 
         # preprocess image
         img = self.preprocess_img(item.img)
@@ -100,26 +103,32 @@ class DataSetTorch(torch.utils.data.Dataset):
         return img
 
     def augment_img(self, img, mat):
-        """ horizontal flip, random brightness, gaussian noise and contrast
-        img already in float32 format, not uint8
+        """ img already in float32 BGR format, not uint8
         """
 
-        # horizontal flip - TODO
+        # horizontal flip
         p_flip = np.random.uniform()  # in [0,1)
-        if p_flip > 0.33:
-            cx = 1686.2379
-            img_flipped = scripts.flip_image_hor.flip_hor_at_u(img, cx)
-            mat_flipped = scripts.flip_image_hor.flip_hor_at_u(mat, cx)
+        if p_flip > 0:  # 0.33:
+            uv_cx = np.array([1686.2379, 0])
+            IMG_SHAPE = (2710, 3384, 3)  # img.shape = h,w,c
+            uv_cx_new = self.convert_uv_to_uv_preprocessed(uv_cx, IMG_SHAPE)
+            cx_mat = uv_cx_new[0]
+            cx_img = cx_mat * self.factor_downsample
+            img_flipped = scripts.flip_image_hor.flip_hor_at_u(img, cx_img)
+            mat_flipped = scripts.flip_image_hor.flip_hor_at_u(mat, cx_mat)
+            mat_flipped[:, :, 4] *= -1  # x
+            mat_flipped[:, :, 2] *= -1  # sin(yaw)
+            mat_flipped[:, :, 3] *= -1  # roll
         else:
             img_flipped = img
-            mat_augmented = mat
+            mat_flipped = mat
 
         # grayish - change HSV values
         p_sat = np.random.uniform()  # in [0,1)
         if p_sat > 0.33:
-            img_desat = reduce_saturation(img, sat_shift_range=(-0.15, 0))
+            img_desat = reduce_saturation(img_flipped, sat_shift_range=(-0.15, 0))
         else:
-            img_desat = img
+            img_desat = img_flipped
 
         # gamma change
         aug1 = albumentations.RandomGamma(gamma_limit=(70, 130),
@@ -144,7 +153,7 @@ class DataSetTorch(torch.utils.data.Dataset):
             ax[1].imshow(img_augmented[:, :, ::-1])
             plt.show()
 
-        return img_augmented, mat
+        return img_augmented, mat_flipped
 
     def convert_item_to_mat(self, item):
         # create empty mat with 8 channels for
