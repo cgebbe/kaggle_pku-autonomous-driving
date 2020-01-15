@@ -8,19 +8,18 @@ import torch
 import torch.utils.data
 import scipy
 import scipy.optimize
+from tqdm import tqdm
 
 
 def optimize_xyz(v_pred, u_pred, x0, y0, z0, params):
-    def distance_fn(xyz):
-        # constants
-        IMG_SHAPE = (2710, 3384, 3)  # img.shape
-
-        # calculate slope error
+    def calc_distance(xyz):
+        # calculate fitting error
         x, y, z = xyz
         y_pred = 1.0392211185855782 + 0.05107277 * x + 0.16864302 * z  # from notebook
-        slope_err = (y_pred - y) ** 2
+        dist_fit = (y_pred - y) ** 2
 
-        # calculate u,v
+        # calculate u,v for reduced image
+        IMG_SHAPE = (2710, 3384, 3)  # img.shape = h,w,c
         cam_K = np.array([[2304.5479, 0, 1686.2379],
                           [0, 2305.8757, 1354.9849],
                           [0, 0, 1]], dtype=np.float32)
@@ -29,15 +28,31 @@ def optimize_xyz(v_pred, u_pred, x0, y0, z0, params):
         dataset_torch = data_loader_torch.DataSetTorch(None, params)
         uv_new = dataset_torch.convert_uv_to_uv_preprocessed(uv, IMG_SHAPE)
         u_new, v_new = uv_new[0], uv_new[1]
+        dist_uv = (v_new - v_pred) ** 2 + (u_new - u_pred) ** 2
 
-        # calc distance
-        distance = (max(0.2, (v_new - v_pred) ** 2 + (u_new - u_pred) ** 2)
-                    + max(0.4, slope_err))
-        return distance
+        # total
+        dist_tot = max(0.2, dist_uv) + max(0.4, dist_fit)
+        # dist_tot = dist_uv + dist_fit
+        return dist_tot
 
-    res = scipy.optimize.minimize(distance_fn, [x0, y0, z0], method='Powell')
+    # fit coordinates to u,v and y(x,z)
+    res = scipy.optimize.minimize(calc_distance, [x0, y0, z0], method='Powell')
     x_new, y_new, z_new = res.x
-    return x_new, y_new, z_new
+
+    # check magnitude of change
+    norm0 = np.linalg.norm([x0, y0, z0])
+    # norm_new = np.linalg.norm([x_new, y_new, z_new])
+    norm_diff = np.linalg.norm([x_new - x0, y_new - y0, z_new - z0])
+    norm_diff_rel = norm_diff / norm0
+    # print("\n norm_diff_rel={}".format(norm_diff_rel))
+
+    # return either optimized or non optimized variables
+    if norm_diff_rel > 0.1 or z_new < 0:
+        is_marked = 1
+        return x0, y0, z0, is_marked
+    else:
+        is_marked = 0
+        return x_new, y_new, z_new, is_marked
 
 
 def predict(model,
@@ -63,8 +78,9 @@ def predict(model,
     # perform predictions
     predictions = []
     model.eval()
-    for idx_batch, (img, _, _) in enumerate(data_loader_test):
-        print("{}/{} Predicting batch".format(idx_batch, len(data_loader_test)))
+    idx_batch = -1
+    for img, _, _ in tqdm(data_loader_test):
+        idx_batch += 1
         if idx_batch > params['predict']['num_batches_max']:
             print("Ending early because of param num_batches_max={}".format(params['predict']['num_batches_max']))
             break
@@ -77,46 +93,61 @@ def predict(model,
         # extract cars as string from each element in batch
         num_elems_in_batch = output.shape[0]
         for idx_elem_in_batch in range(num_elems_in_batch):
-            # get image in RGB format from tensor
-            if params['predict']['flag_plot_mat'] or params['predict']['flag_plot_item']:
-                assert params['predict']['batch_size'] == 1
+            # get mat from output and plot
+            mat = output[idx_elem_in_batch, ...]
+            mat = np.rollaxis(mat, 0, 3)  # reverse rolling backwards
+            if params['predict']['flag_plot_mat']:
+                # convert image to numpy
                 img_numpy = img.data.cpu().numpy()
                 img_numpy = img_numpy[0, ...]
                 img_numpy = np.rollaxis(img_numpy, 0, 3)  # reverse rolling backwards
                 img_numpy = img_numpy[:, :, ::-1]  # BGR to RGB
 
-            # get mat from output and plot
-            mat = output[idx_elem_in_batch, ...]
-            mat = np.rollaxis(mat, 0, 3)  # reverse rolling backwards
-            if params['predict']['flag_plot_mat']:
-                fig, ax = plt.subplots(3, 1, figsize=(12, 12))
+                fig, ax = plt.subplots(5, 1, figsize=(10, 15))
                 ax[0].imshow(img_numpy)
                 ax[1].imshow(mat[:, :, 0])
-                ax[2].imshow(mat[:, :, 1])
-                fig.savefig('output/plot_mat.png')
-                if False:
-                    logits = mat[:, :, 0]
-                    num_cars = np.sum(logits > 0)
+                ax[2].imshow(mat[:, :, 4])
+                ax[3].imshow(mat[:, :, 5])
+                ax[4].imshow(mat[:, :, 7])
+                for axi, label in zip(ax, ['img', 'mask', 'x', 'y', 'z']):
+                    axi.set_ylabel(label)
+                id = dataset_test.df_cars.loc[idx_batch, 'ImageId']
+                fig.suptitle('ImageID={}'.format(id))
+
+                # save
+                path_out = os.path.join(params['path_folder_out'],
+                                        'pred_mat',
+                                        '{:05d}.png'.format(idx_batch),
+                                        )
+                os.makedirs(os.path.dirname(path_out), exist_ok=True)
+                fig.savefig(path_out)
+                plt.close()
 
             # convert mat to item and plot.
             item = dataset_torch_test.convert_mat_to_item(mat)
             if params['predict']['flag_optimize']:
                 for idx_car, car in enumerate(item.cars):
-                    x_new, y_new, z_new = optimize_xyz(car.v, car.u, car.x, car.y, car.z, params)
+                    x_new, y_new, z_new, is_marked = optimize_xyz(car.v, car.u, car.x, car.y, car.z, params)
                     item.cars[idx_car].x = x_new
                     item.cars[idx_car].y = y_new
                     item.cars[idx_car].z = z_new
+                    item.cars[idx_car].is_marked = is_marked
 
             if params['predict']['flag_plot_item']:
                 id = dataset_test.df_cars.loc[idx_batch, 'ImageId']
-                item.img = img_numpy
+                item_org = dataset_test.load_item(id)
+                item.img = item_org.img
                 item.mask = np.zeros((1, 1))
                 fig, ax = item.plot()
                 fig.suptitle('ImageID={}'.format(id))
 
+                if idx_batch == 2:
+                    num_cars = len(item.cars)
+                    plt.show()
+
                 # save
                 path_out = os.path.join(params['path_folder_out'],
-                                        'pred_new',
+                                        'pred_item',
                                         '{:05d}.png'.format(idx_batch),
                                         )
                 os.makedirs(os.path.dirname(path_out), exist_ok=True)
@@ -131,4 +162,7 @@ def predict(model,
     df_out = dataset_torch_test.dataset.df_cars
     df_out.loc[0:len(predictions) - 1, 'PredictionString'] = predictions
     print(df_out.head())
+    path_csv = os.path.join(params['path_folder_out'], 'predictions.csv')
+    df_out.to_csv(path_csv, sep=',', index=False)
+
     return df_out

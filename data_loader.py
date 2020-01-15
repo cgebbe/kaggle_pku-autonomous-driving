@@ -43,9 +43,10 @@ class Car:
         self.yaw = float(yaw)
         self.pitch = float(pitch)
         self.roll = float(roll)
-        self.id = id # usually int, but abused as float logits value when predicting
+        self.id = id  # usually int, but abused as float logits value when predicting
         self.u = u
         self.v = v
+        self.is_marked = 0
 
         # camera matrix K from camera_intrinsic.txt
         self.cam_K = np.array([[2304.5479, 0, 1686.2379],
@@ -61,7 +62,8 @@ class Car:
     def plot(self, ax):
         # plot car center
         uv_center = self.get_uv_center()
-        ax.scatter(uv_center[0], uv_center[1], s=100, color='green')
+        color_dot = 'red' if self.is_marked else 'green'
+        ax.scatter(uv_center[0], uv_center[1], s=100, color=color_dot, alpha=0.5)
 
         # plot corner points
         x_dim = 1.02
@@ -97,11 +99,11 @@ class DataItem:
         # determine number of cars
         values = string.split(' ')
         assert len(values) % 7 == 0
-        num_cars = len(values) // 7
+        num_items_ = len(values) // 7
 
         # transform values into car object instances
         self.cars = []
-        for idx_car in range(num_cars):
+        for idx_car in range(num_items_):
             car = Car(values[idx_car * 7 + 4],
                       values[idx_car * 7 + 5],
                       values[idx_car * 7 + 6],
@@ -150,9 +152,28 @@ class DataSet:
                  ):
         self.path_folder_images = path_folder_images
         self.path_folder_masks = path_folder_masks
+
+        # parse csv file
         assert os.path.isfile(path_csv)
         self.df_cars = pd.read_csv(path_csv, sep=',')
-        self.list_ids = self.df_cars.loc[:, 'ImageId']
+
+        # remove erroneous images from list in training
+        if 'train' in path_csv:
+            ids_erroneous = ['ID_1a5a10365,'
+                             'ID_4d238ae90',
+                             'ID_408f58e9f',
+                             'ID_bb1d991f6',
+                             'ID_c44983aeb',
+                             ]
+            num_items_before = len(self.df_cars)
+            for id in ids_erroneous:
+                mask = self.df_cars.loc[:, 'ImageId'] == id
+                assert np.sum(mask) in [0, 1]
+                self.df_cars = self.df_cars.loc[np.invert(mask), :]
+            num_items_after = len(self.df_cars)
+
+        # determine id list from csv
+        self.list_ids = list(self.df_cars.loc[:, 'ImageId'])
 
     def __len__(self):
         return len(self.list_ids)
@@ -160,7 +181,7 @@ class DataSet:
     def load_item(self,
                   id,
                   flag_load_img=True,
-                  flag_load_mask=True,
+                  flag_load_mask=False,
                   flag_load_car=True,
                   ):
         # construct empty item
@@ -214,7 +235,7 @@ if __name__ == '__main__':
         if idx_item > 3:
             continue
         item = dataset.load_item(id)
-        fig,ax = item.plot()
+        fig, ax = item.plot()
         fig.savefig('output/plot_data_loader.png')
 
     print("=== Finished")

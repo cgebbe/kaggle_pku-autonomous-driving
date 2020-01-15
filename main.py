@@ -2,11 +2,13 @@ import yaml
 import torch
 import logging
 import os
+import argparse
 
 import model_architecture
 import train
 import predict
 
+# setup logger - TODO: right format and save log in output folder
 logger = logging.getLogger('main')
 
 
@@ -15,21 +17,24 @@ def main():
     with open("params.yaml", 'r') as stream:
         params = yaml.safe_load(stream)
 
-    # TODO - setup logging
-
     # create output folder
     os.makedirs(params['path_folder_out'], exist_ok=True)
 
-    # load model
-    assert torch.cuda.is_available(), "cuda device is not available"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # choose device for loading
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        print("WARNING !!! Using CPU ")
+        device = torch.device("cpu")
     logger.info('Working on device={}'.format(device))
+
+    # load model
     num_classes = 8
     model = model_architecture.MyUNet(num_classes, device, params).to(device)
     path_weights = params['model']['path_weights']
     if path_weights:
         assert os.path.isfile(path_weights), "path_weights does not exist as a file"
-        model.load_state_dict(torch.load(path_weights))
+        model.load_state_dict(torch.load(path_weights, map_location=device))
 
     # execute training or inference
     if params['mode'] == 'train':
@@ -42,8 +47,6 @@ def main():
                                  device,
                                  params,
                                  )
-        path_csv = os.path.join(params['path_folder_out'], 'predictions.csv')
-        df_out.to_csv(path_csv, sep=',', index=False)
 
     logger.info("=== Finished")
 

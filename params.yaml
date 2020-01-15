@@ -1,46 +1,63 @@
 model:
-  input_width: 1024
-  input_height: 320 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
+  input_width: 1536
+  input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  #path_weights: 'output/20191222_koala/model_11.pth'
-  #path_weights: 'output/20200106_rusian_org/model.pth'
-  path_weights: #'output/20200107_rusian_my_notebook/model.pth'
+  path_weights: '../output/20200112_focal_loss_v2/model_6.pth' #'../output/20200110_img_larger_v3/model_7.pth'
+  #path_weights: '../output/20200112_focal_loss/model_11.pth'
+  flag_use_dummy_model: 0
+
+datasets_org:
+  train:
+    path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
+  valid:
+    path_csv: '/kaggle/input/pku-autonomous-driving/train_valid.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
+  test:
+    path_csv: '/kaggle/input/pku-autonomous-driving/sample_submission.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/test_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
 
 datasets:
   train:
-    path_csv: '../data/train_train.csv'
-    path_folder_images: '../data/train_images'
-    path_folder_masks: '../data/train_masks'
+    path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
   valid:
-    path_csv: '../data/train_valid.csv'
-    path_folder_images: '../data/train_images'
-    path_folder_masks: '../data/train_masks'
+    path_csv: '/kaggle/input/pku-autonomous-driving/train_valid.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
   test:
-    path_csv: '../data/sample_submission.csv'
-    path_folder_images: '../data/test_images'
-    path_folder_masks: '../data/test_masks'
+    path_csv: '/kaggle/input/pku-autonomous-driving/sample_submission.csv'
+    path_folder_images: '/kaggle/input/pku-autonomous-driving/test_images'
+    path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
 
 
-mode: 'train' # train or predict
+mode: 'predict' # train or predict
 
 train:
   batch_size: 2
   batch_size_eval: 4
-  num_epochs: 10
-  idx_epoch_switch: 0
-  learning_rate: 0.002
+  num_epochs: 12
+  learning_rate:
+    initial: 0.002
+    num_epochs_const: 3
+    factor_decrease: 0.2
   loss:
-    flag_focal_loss: 0
+    flag_focal_loss: 1
     flag_size_average: 1
 
 predict:
   batch_size: 1
-  num_batches_max: 9999999
-  flag_optimize: 1 # modify x,y,z using predicted u,v
+  num_batches_max: 99999999
+  flag_optimize: 1 # modify x,y,z using predicted u,v and y(x,z) fit
   flag_plot_mat: 0
   flag_plot_item: 0
 
-path_folder_out: 'output/20200109_img_larger'
+#path_folder_out: '../output/20200110_img_larger_v3/model_7'
+path_folder_out: '../output/20200112_focal_loss_v2/model_6'
 
 

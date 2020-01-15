@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
+import torchvision
 
 
 class double_conv(nn.Module):
@@ -81,29 +82,45 @@ class MyUNet(nn.Module
                  device,
                  params,
                  ):
+        # save params
         self.params = params
-        assert params['model']['factor_downsample'] in [4,8], 'downsample factor not known'
-
-        super(MyUNet, self).__init__()
         self.device = device
-        self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
+        super(MyUNet, self).__init__()
 
-        self.conv0 = double_conv(5, 64)
-        self.conv1 = double_conv(64, 128)
-        self.conv2 = double_conv(128, 512)
-        self.conv3 = double_conv(512, 1024)
-
+        # setup layers
         self.mp = nn.MaxPool2d(2)
+        if not self.params['model']['flag_use_dummy_model']:
+            self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
+            self.conv0 = double_conv(5, 64)
+            self.conv1 = double_conv(64, 128)
+            self.conv2 = double_conv(128, 512)
+            self.conv3 = double_conv(512, 1024)
+            self.up1 = up(1282 + 1024, 512)  # feats = 1282, x4 = 1024
+            self.up2 = up(512 + 512, 256)  # x3 = 512
+            if self.params['model']['factor_downsample'] == 4:
+                self.up3 = up(256 + 128, 256)  # x2 = 128
+            self.outc = nn.Conv2d(256, n_classes, 1)
+        else:
+            # replicate base model with dummys: 5x maxpool and 1280 resulting channels
+            self.base_model = nn.Sequential(
+                nn.MaxPool2d(2),
+                nn.MaxPool2d(2),
+                nn.MaxPool2d(2),
+                nn.MaxPool2d(2),
+                nn.MaxPool2d(2),
+                nn.Conv2d(3, 1280, 3, padding=1),
+            )
+            self.conv0 = double_conv(5, 1)
+            self.conv1 = double_conv(1, 1)
+            self.conv2 = double_conv(1, 1)
+            self.conv3 = double_conv(1, 1)
+            self.up1 = up(1282 + 1, 1)  # feats = 1282, x4 = 1024
+            self.up2 = up(1 + 1, 1)  # x3 = 512
+            if self.params['model']['factor_downsample'] == 4:
+                self.up3 = up(1 + 1, 1)  # x2 = 128
+            self.outc = nn.Conv2d(1, n_classes, 1)
 
-        self.up1 = up(1282 + 1024, 512) # feats = 1282, x4 = 1024
-        self.up2 = up(512 + 512, 256) # x3 = 512
-        if self.params['model']['factor_downsample'] == 4:
-            self.up3 = up(256 + 128, 256) # x2 = 128
-        self.outc = nn.Conv2d(256, n_classes, 1)
-
-    def forward(self,
-                x,
-                ):
+    def forward(self, x):
         # simply perform 4x double convolution + max-pooling
         batch_size = x.shape[0]
         mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3], self.device)
@@ -116,7 +133,11 @@ class MyUNet(nn.Module
         # in parallel, extract features using base model on center image (because rest is padding)
         img_width = x.shape[3]
         x_center = x[:, :, :, img_width // 8: -img_width // 8]
-        feats = self.base_model.extract_features(x_center)
+        if not self.params['model']['flag_use_dummy_model']:
+            feats = self.base_model.extract_features(x_center)
+        else:
+            feats = self.base_model(x_center)
+
         bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8]).to(self.device)
         feats = torch.cat([bg, feats, bg], 3)
         mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3], self.device)
@@ -136,7 +157,10 @@ if __name__ == '__main__':
     print(device)
 
     # define model and test inference with dummy data
-    params = {'model': {'factor_downsample': 4}}
+    params = {'model': {'factor_downsample': 4,
+                        'flag_use_dummy_model': 1,
+                        },
+              }
     width = 1536  # 1536  # 1024
     height = 512  # 512  # 320
     model = MyUNet(8, device, params).to(device)

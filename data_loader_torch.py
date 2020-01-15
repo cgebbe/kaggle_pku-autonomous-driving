@@ -5,6 +5,7 @@ import data_loader
 import cv2
 import math
 import matplotlib.pyplot as plt
+import albumentations
 
 
 def convert_roll_to_roll_new(roll):
@@ -59,19 +60,19 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # preprocess image
         img = self.preprocess_img(item.img)
-        img = np.rollaxis(img, 2, 0)
 
         # Convert car labels to matrix
         if self.flag_load_label:
             mat = self.convert_item_to_mat(item)
         else:
-            mat = np.zeros(1, 1, 8)
+            mat = np.zeros((1, 1, 8))
 
-        # perform image augmentation
+        # perform augmentation
         if self.flag_augment:
             img, mat = self.augment_img(img, mat)
 
-        # convert img and mat to desired pytorch output
+        # convert matrices to desired torch format
+        img = np.rollaxis(img, 2, 0)
         mask = mat[:, :, 0]
         regr = mat[:, :, 1:]
         regr = np.rollaxis(regr, 2, 0)
@@ -88,8 +89,48 @@ class DataSetTorch(torch.utils.data.Dataset):
         return img
 
     def augment_img(self, img, mat):
-        # horizontal flip - TODO
+        """ horizontal flip, random brightness, gaussian noise and contrast
+        img already in float32 format, not uint8
+        """
         return img, mat
+
+        # horizontal flip - TODO
+        if True:
+            mat_augmented = mat
+        else:
+            mat_augmented = mat
+
+        # gamma change
+        aug1 = albumentations.RandomGamma(gamma_limit=(80, 120),
+                                          p=1,
+                                          )
+
+        # gaussian noise
+        aug2 = albumentations.MultiplicativeNoise(multiplier=(0.75, 1.25),
+                                                  elementwise=True,
+                                                  per_channel=True,
+                                                  p=1,
+                                                  )
+
+        # grayish - change HSV values
+        aug3 = albumentations.HueSaturationValue(hue_shift_limit=(0, 0),
+                                                 sat_shift_limit=(-0, 0),
+                                                 val_shift_limit=(0, 0),
+                                                 p=1,
+                                                 )
+
+        # apply all augmentations to image
+        aug_tot = albumentations.Compose([aug3], p=1)
+        img_augmented = aug_tot(image=img)['image']
+
+        # for debugging purposes
+        if True:
+            fig, ax = plt.subplots(2, 1)
+            ax[0].imshow(img[:, :, ::-1])
+            ax[1].imshow(img_augmented[:, :, ::-1])
+            plt.show()
+
+        return img_augmented, mat
 
     def convert_item_to_mat(self, item):
         # create empty mat with 8 channels for
@@ -102,6 +143,7 @@ class DataSetTorch(torch.utils.data.Dataset):
         mat = np.zeros(mat_shape, dtype='float32')
 
         # fill in matrixes
+        num_cars = len(item.cars)
         for car in item.cars:
             uv_center = car.get_uv_center()
             uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
@@ -123,19 +165,19 @@ class DataSetTorch(torch.utils.data.Dataset):
             mat[:, :, 0] = 0  # reset confidence values to 0
             height = mat.shape[0]
             width = mat.shape[1]
-            vs, us = np.meshgrid(np.arange(height), np.arange(width))
+            us, vs = np.meshgrid(np.arange(width), np.arange(height))
             for car in item.cars:
                 uv_center = car.get_uv_center()
                 uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
                 uv_new = np.round(uv_new).astype(int)  # round floats to int
                 u, v = uv_new[0], uv_new[1]
-
-                # choose sigma s.t. sigma = 2px at 10m and 8x downsample (40x128)
-                sigma = 2 * 10 / car.z * 8 / self.factor_downsample
-
+                # choose sigma s.t. sigma = 5px at 10m and 8x downsample (40x128)
+                sigma = 5 * 10 / car.z * 8 / self.factor_downsample
                 heatmap = np.exp(- ((us - u) ** 2 + (vs - v) ** 2) / (2.0 * sigma))
-                heatmap = np.clip(heatmap, 0, 1)
                 mat[:, :, 0] += heatmap
+        # set values less than 1E-12 to 0 (probably not necessary, but easier)
+        mask_low = mat[:, :, 0] < 1E-12
+        mat[:, :, 0][mask_low] = 0
 
         return mat
 
@@ -215,31 +257,35 @@ class DataSetTorch(torch.utils.data.Dataset):
 
 if __name__ == '__main__':
     params = {'model': {'factor_downsample': 4,
-                        'input_height': 320,
-                        'input_width': 1024,
-                        'loss': {'flag_focal_loss': 1}
+                        'input_height': 512,
+                        'input_width': 1536,
                         },
+              'train': {'loss': {'flag_focal_loss': 1}},
               }
     dataset = data_loader.DataSet(path_csv='../data/train.csv',
                                   path_folder_images='../data/train_images',
                                   path_folder_masks='../data/train_masks',
                                   )
     dataset_torch = DataSetTorch(dataset, params)
-    [img, mask, regr] = dataset_torch[0]
+    num_items = len(dataset_torch)
+    for idx_item in range(num_items):
+        [img, mask, regr] = dataset_torch[idx_item]
 
-    # reverse rolling backwards
-    img = np.rollaxis(img, 0, 3)
-    regr = np.rollaxis(regr, 0, 3)
-    print(img.shape)
-    print(regr.shape)
+        # reverse rolling backwards
+        img = np.rollaxis(img, 0, 3)
+        regr = np.rollaxis(regr, 0, 3)
+        print(img.shape)
+        print(regr.shape)
 
-    # plot example
-    fig, ax = plt.subplots(3, 1, figsize=(10, 10))
-    ax[0].imshow(img[:, :, ::-1])
-    ax[1].imshow(mask)
-    ax[2].imshow(regr[:, :, 0])
-    fig.tight_layout()
-    plt.show()
-    fig.savefig("output/plot.png")
+        # plot example
+        fig, ax = plt.subplots(3, 1, figsize=(10, 10))
+        ax[0].imshow(img[:, :, ::-1])
+        ax[1].imshow(mask)
+        ax[2].imshow(regr[:, :, 0])
+        fig.tight_layout()
+        plt.show()
+        if idx_item % 5 == 0:
+            dummy = 0
+        # fig.savefig("output/plot.png")
 
     print("=== Finished")
