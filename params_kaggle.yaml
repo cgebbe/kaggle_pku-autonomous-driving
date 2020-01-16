@@ -8,29 +8,14 @@ model:
   path_weights: 'model.pth'
   flag_use_dummy_model: 0
 
-datasets_org:
-  flag_use_mask: 0
-  train:
-    path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
-    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
-    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
-  valid:
-    path_csv: '/kaggle/input/pku-autonomous-driving/train_valid.csv'
-    path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
-    path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
-  test:
-    path_csv: '/kaggle/input/pku-autonomous-driving/sample_submission.csv'
-    path_folder_images: '/kaggle/input/pku-autonomous-driving/test_images'
-    path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
-
 datasets:
   flag_use_mask: 0
   train:
-    path_csv: '/kaggle/input/pku-autonomous-driving/train_train.csv'
+    path_csv: 'csv/train_train.csv'
     path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
     path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
   valid:
-    path_csv: '/kaggle/input/pku-autonomous-driving/train_valid.csv'
+    path_csv: 'csv/train_valid.csv'
     path_folder_images: '/kaggle/input/pku-autonomous-driving/train_images'
     path_folder_masks: '/kaggle/input/pku-autonomous-driving/train_masks'
   test:
