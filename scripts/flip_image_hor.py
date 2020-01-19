@@ -30,7 +30,7 @@ def flip_hor_at_u(img, cx, flag_plot=False):
     bg_left = np.repeat(bg, pad_left, axis=1)
     bg_right = np.repeat(bg, pad_right, axis=1)
     img_padded = np.hstack((bg_left, img, bg_right))
-    img_padded_flipped = img_padded[:, ::-1, :]
+    img_padded_flipped = np.flip(img_padded, axis=1).copy()
 
     # crop back to org size s.t. cx=const
     dim_right = width_new - pad_right
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     cx = cam_K[0, 2]
     img = cv2.imread(path_img)[:, :, ::-1]  # BGR to RGB
 
-    if False:
+    if True:
         # dummy values
         img = np.random.rand(4, 6, 3) * 255
         img = img.astype(np.uint8)

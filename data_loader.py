@@ -131,13 +131,12 @@ class DataItem:
 
     def plot(self):
         # plot image and mask
-        fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(15, 8))
-        ax[0].imshow(self.img[:, :, ::-1])
-        ax[1].imshow(self.mask)
+        fig, ax = plt.subplots(1, 1, sharex=True, sharey=True, figsize=(10, 10))
+        ax.imshow(self.img[:, :, ::-1])
 
         # plot cars on top of image
         for car in self.cars:
-            car.plot(ax[0])
+            car.plot(ax)
 
         # show result
         fig.tight_layout()
@@ -171,6 +170,7 @@ class DataSet:
                 assert np.sum(mask) in [0, 1]
                 self.df_cars = self.df_cars.loc[np.invert(mask), :]
             num_items_after = len(self.df_cars)
+            print("Deleted {} erroneous images".format(num_items_after - num_items_before))
 
         # determine id list from csv
         self.list_ids = list(self.df_cars.loc[:, 'ImageId'])
@@ -201,7 +201,7 @@ class DataSet:
                 mask_bool = np.all(mask_bool_per_channel, axis=-1)
                 item.img[mask_bool] = [255, 0, 255]
             except:
-                logger.warning('Mask not found for id {}'.format(id))
+                logger.debug('Mask not found for id={}'.format(id))
 
         # load car information
         if flag_load_car:

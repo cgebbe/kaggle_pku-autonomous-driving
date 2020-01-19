@@ -147,7 +147,7 @@ class DataSetTorch(torch.utils.data.Dataset):
         img_augmented = aug_tot(image=img_desat)['image']
 
         # for debugging purposes
-        if True:
+        if False:
             fig, ax = plt.subplots(2, 1)
             ax[0].imshow(img[:, :, ::-1])
             ax[1].imshow(img_augmented[:, :, ::-1])
@@ -284,6 +284,7 @@ if __name__ == '__main__':
                         'input_width': 1536,
                         },
               'train': {'loss': {'flag_focal_loss': 1}},
+              'datasets': {'flag_use_mask': 0},
               }
     dataset = data_loader.DataSet(path_csv='../data/train.csv',
                                   path_folder_images='../data/train_images',

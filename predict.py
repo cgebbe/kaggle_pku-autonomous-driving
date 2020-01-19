@@ -103,13 +103,15 @@ def predict(model,
                 img_numpy = np.rollaxis(img_numpy, 0, 3)  # reverse rolling backwards
                 img_numpy = img_numpy[:, :, ::-1]  # BGR to RGB
 
-                fig, ax = plt.subplots(5, 1, figsize=(10, 15))
+                fig, ax = plt.subplots(2, 1, figsize=(10, 10))
                 ax[0].imshow(img_numpy)
-                ax[1].imshow(mat[:, :, 0])
-                ax[2].imshow(mat[:, :, 4])
-                ax[3].imshow(mat[:, :, 5])
-                ax[4].imshow(mat[:, :, 7])
-                for axi, label in zip(ax, ['img', 'mask', 'x', 'y', 'z']):
+                ax_mask = ax[1].imshow(mat[:, :, 0], cmap='PiYG', vmin=-1, vmax=+1)
+                fig.colorbar(ax_mask, ax=ax[1])
+                if False:  # only use in case of multiple axes, here x,y,z
+                    ax[2].imshow(mat[:, :, 4])
+                    ax[3].imshow(mat[:, :, 5])
+                    ax[4].imshow(mat[:, :, 7])
+                for axi, label in zip(ax, ['img', 'mask']):  # , 'x', 'y', 'z']):
                     axi.set_ylabel(label)
                 id = dataset_test.df_cars.loc[idx_batch, 'ImageId']
                 fig.suptitle('ImageID={}'.format(id))

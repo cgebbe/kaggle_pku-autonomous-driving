@@ -1,11 +1,11 @@
+path_folder_out: '../output/20200119_focal_v3'
+
 model:
   input_width: 1536
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  #path_weights: '../output/20200112_focal_loss_v2/model_6.pth' #'../output/20200110_img_larger_v3/model_7.pth'
-  #path_weights: '../output/20200112_focal_loss/model_11.pth'
-  path_weights: 'model.pth'
+  path_weights: 'model.pth' # = '../output/20200112_focal_loss_v2/model_6.pth'
   flag_use_dummy_model: 0
 
 datasets:
@@ -28,12 +28,12 @@ mode: 'train' # train or predict
 
 train:
   use_augmentation: 0
-  batch_size: 2
+  batch_size: 4
   batch_size_eval: 4
-  num_epochs: 12
+  num_epochs: 10
   learning_rate:
     initial: 0.002
-    num_epochs_const: 3
+    num_epochs_const: 30
     factor_decrease: 0.2
   loss:
     flag_focal_loss: 1
@@ -46,7 +46,5 @@ predict:
   flag_plot_mat: 0
   flag_plot_item: 1
 
-#path_folder_out: '../output/20200110_img_larger_v3/model_7'
-path_folder_out: '20200112_focal_loss_v2/model_6'
 
 

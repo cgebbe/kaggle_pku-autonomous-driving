@@ -7,6 +7,9 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 import torchvision
 
+#NORM_LAYER = nn.BatchNorm2d() # num_features (output)
+#NORM_LAYER = nn.GroupNorm() # num_groups, num_channels
+
 
 class double_conv(nn.Module):
     '''(conv => BN => ReLU) * 2'''

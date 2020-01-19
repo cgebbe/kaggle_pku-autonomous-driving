@@ -18,8 +18,8 @@
 | Increased model input size from 1024x320 to 1536x512 (without modifying layers. Maybe another convolution would be necessary, because effective window size decreases?). Added another upsample convolution to increase output size to 384x128 (before 128x40) | x - aborted training after epoch 4 | mask loss dominates. -> Change weights s.t. mask and regr loss are similar |
 | Changed weights, so that mask and regr loss are same order of magnitude, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/115673 | public LB 0.062, place 109/820     | :)  -> Next: choose next improvement idea                    |
 | Major change: Switched from binary loss to focal loss for mask. Minor change: Excluded five erroneous images from training set | public LB 0                        | :( Mask seems great, but regression values are totally wrong |
-| In training: Changed regression loss by extracting binary mask from heatmap mask. Also changed learning rate scheduler slightly. In prediction post-processing: Disable optimization if optimized values don't make any sense. Only trained 6 epochs due to abnormal server disconnect. | public LB 0.044                    |                                                              |
-| Added image augmentation in training (most importantly hor flip). MAp is now calculated during training to assess model quality |                                    |                                                              |
+| In training: Changed regression loss by extracting binary mask from heatmap mask. Also changed learning rate scheduler slightly. In prediction post-processing: Disable optimization if optimized values don't make sense.  (20200112_focal_loss_v2 / model_6) | public LB 0.044                    | My impression is that learning is not yet finished. Could achieve better score by training more -> Train focal loss more and disable LR decay |
+| (In parallel to training above): Trained a new model with focal loss, image augmentation and usage of provided masks. | public LB 0.005                    | Somehow, very few predictions on cars, especially near cars. Focal loss w/out aug & mask is much better. Why?!? |
 
 # Improvement idea collection
 - larger image size 1536*512
@@ -51,6 +51,20 @@
 - In general a detailed error analysis. For example
   - What is the kpi on near / distant cars?
   - Which thresholds are reached, which not? Is the limiting factor the rotational or the translational error?
+- Use GroupNorm instead of BatchNorm, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/122469 and  https://medium.com/syncedreview/facebook-ai-proposes-group-normalization-alternative-to-batch-normalization-fb0699bffae7
+
+### Effective window size
+
+- layers
+  - from https://arxiv.org/pdf/1905.11946.pdf
+    - ![1579453942353](README.assets/1579453942353.png)
+  - from https://ai.googleblog.com/2019/05/efficientnet-improving-accuracy-and.html
+    - ![img](https://1.bp.blogspot.com/-DjZT_TLYZok/XO3BYqpxCJI/AAAAAAAAEKM/BvV53klXaTUuQHCkOXZZGywRMdU9v9T_wCLcBGAs/s1600/image2.png)
+- MBConv1 and MBConv6
+  - from https://arxiv.org/pdf/1807.11626.pdf
+    - ![1579454860688](README.assets/1579454860688.png)
+  - from https://forums.fast.ai/t/efficientnet/46978/76
+    - "When the paper is talking about MBConv1 or MBConv6 they mean MBConv with an expansion factor of 1 and 6, respectively. The MBConv1 block does not come with the first expansion 1x1 conv since there is nothing to expand (expansion factor 1); this block starts with a depthwise separable convolution immediately."
 
 
 
@@ -58,7 +72,11 @@
 
 - Simply download the predictions.csv output file from a notebook to evaluate its score instead of rerunning the whole notebook and waiting 12h
 - Instead of starting code from scratch rather refactor the existing notebook code. While starting from scratch is a greater learning experience and produces more structured code (in my view), it is quite difficult and cumbersome to get all details right in the reimplementation and thus have a defined starting point.
-- Buy a graphic card, which can at least perform inference with the desired model. Solution now was to use a google colab GPU via ssh and pycharm remote (possible through ngrok "hack"). However, this is unstable and time tedious. I believe I could have run 2x as many trainings using a decent desktop PC.
+- Buy a decent GPU. Solution now was to use either a free google colab GPU via ssh and pycharm remote (possible through ngrok "hack") or sometimes the free kaggle GPU. However, both have disadvantages (see details below). Often, I would start 1-2 trainings in the evening and I would find both of them aborted the next morning :/.
+  - Usage of the kaggle GPU is limited to 30h/week and importing the code is tedious. Moreover, during commiting, you cannot see any output and thus detect e.g. a nan-loss.
+  - Google colab sessions have an official time limit of 12h, but in reality training often already stopped after e.g. 4-5h or sometimes even earlier to my surprise. Moreover, I was never able to acquire a GPU backend in the day, only in the evenings.
+  - At the end, I invested into a google cloud GPU (P100). However, even that one was not available all the time :/
+- Work with larger validation set (currently only 1%) so that can be used for validation (because test set online can only be used 2x a day)
 
 
 
@@ -86,7 +104,47 @@
   - location of data
   - flag_simplify_model (only for local running!)
 
-# Why does google colab session crash?
+# How to use (paid) google cloud service?
 
-- see log in /var/log/colab-jupyter.log
+### Overview
 
+- see https://cloud.google.com/tpu/docs/tutorials/pytorch-pod
+- https://medium.com/google-cloud/gcp-the-google-cloud-platform-compute-stack-explained-c4ebdccd299b
+  - google compute engine (GCE) - pure infrastructure (CPU, GPU, Ram)
+    - -> use for custom containers, see e.g. https://medium.com/udacity-pytorch-challengers/pytorch-on-google-cloud-platform-gcp-66644bfc07eb
+    - see tutorials
+      - https://cloud.google.com/blog/products/ai-machine-learning/introducing-pytorch-across-google-cloud
+      - https://cloud.google.com/ai-platform/deep-learning-vm/docs/pytorch_start_instance
+    - see sets of VMs here: https://cloud.google.com/deep-learning-vm/
+  - google Kubernets engine (GKE) - similar to docker containers ?!
+    - also see https://www.kubeflow.org/ -> I guess not necessary at the moment
+    - e.g. a pytorch image, see https://medium.com/udacity-pytorch-challengers/pytorch-on-google-cloud-platform-gcp-66644bfc07eb
+  - google App engine (GAE) - will handle automatic scaling up/down, sits on top of kubernete
+  - google cloud functions - specific functions, usually trigger based (e.g. upon mail arrival)
+- TODO later
+  - configure idle time, see https://cloud.google.com/datalab/docs/concepts/auto-shutdown
+
+### Connect to server via SSH
+
+- SSH and SFTP see https://cloud.google.com/compute/docs/instances/transfer-files#scp
+  
+  - Setup firewall rule, see https://cloud.google.com/vpc/docs/using-firewalls
+    
+    - -> already default
+    
+  - Setup key-pair (public private ?!) , see https://confluence.atlassian.com/bitbucketserver/creating-ssh-keys-776639788.html
+    
+    - -> already one in "C:/Users/<account>/.ssh" or "~/.ssh" in git-bash
+    
+  - Add public key to gcloud, see https://cloud.google.com/compute/docs/instances/adding-removing-ssh-keys
+  
+    - -> done
+  
+  - Connect to server using git-bash and ssh, via following command
+  
+    - ```
+      ssh username@ssh.server.com -p 22 
+      ssh c.gebbe@XXX.XXX.XXX.XXX -p 22 -v
+      ```
+  
+  - using pycharm, see https://blog.jetbrains.com/pycharm/2017/08/ssh-agent-simplify-ssh-keys/

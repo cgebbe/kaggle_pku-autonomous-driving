@@ -3,6 +3,7 @@ import torch
 import logging
 import os
 import argparse
+import shutil
 
 import model_architecture
 import train
@@ -26,6 +27,7 @@ def main():
 
     # create output folder
     os.makedirs(params['path_folder_out'], exist_ok=True)
+    shutil.copyfile(args.path_yaml, os.path.join(params['path_folder_out'], 'params.yaml'))
 
     # choose device for loading
     if torch.cuda.is_available():
