@@ -28,16 +28,19 @@ def _neg_loss(pred_org, gt):
     eps = 1E-10
     pred = torch.clamp(pred, eps, 1 - eps)
 
+    # separate into pos and neg loss
     ind_gt_eq1 = gt.eq(1).float()
     ind_gt_lt1 = gt.lt(1).float()
     num_pos = ind_gt_eq1.float().sum()
 
+    # calc pos and neg loss
     neg_weights = torch.pow(1 - gt, beta)
     pos_loss = torch.log(pred) * torch.pow(1 - pred, alpha) * ind_gt_eq1
     neg_loss = torch.log(1 - pred) * torch.pow(pred, alpha) * neg_weights * ind_gt_lt1
     pos_loss = pos_loss.sum()
     neg_loss = neg_loss.sum()
 
+    # calc total loss
     loss = 0
     if num_pos > 0:
         loss = loss - (pos_loss + neg_loss) / num_pos

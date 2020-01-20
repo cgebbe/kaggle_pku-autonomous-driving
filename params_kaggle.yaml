@@ -31,7 +31,7 @@ train:
   batch_size_eval: 4
   num_epochs: 10
   learning_rate:
-    initial: 0.001
+    initial: 0.002
     num_epochs_const: 30
     factor_decrease: 0.2
   loss:
