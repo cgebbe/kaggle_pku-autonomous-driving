@@ -19,7 +19,8 @@
 | Changed weights, so that mask and regr loss are same order of magnitude, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/115673 | public LB 0.062, place 109/820     | :)  -> Next: choose next improvement idea                    |
 | Major change: Switched from binary loss to focal loss for mask. Minor change: Excluded five erroneous images from training set | public LB 0                        | :( Mask seems great, but regression values are totally wrong |
 | In training: Changed regression loss by extracting binary mask from heatmap mask. Also changed learning rate scheduler slightly. In prediction post-processing: Disable optimization if optimized values don't make sense.  (20200112_focal_loss_v2 / model_6) | public LB 0.044                    | My impression is that learning is not yet finished. Could achieve better score by training more -> Train focal loss more and disable LR decay |
-| (In parallel to training above): Trained a new model with focal loss, image augmentation and usage of provided masks. | public LB 0.005                    | Somehow, very few predictions on cars, especially near cars. Focal loss w/out aug & mask is much better. Why?!? |
+| (In parallel to training above): Trained a new model with focal loss, image augmentation and usage of provided masks. | public LB 0.005                    | Somehow very few car predictions, especially near cars. Focal loss w/out image augmentation & mask is much better. Is something off with augmentation after all?! |
+| Dismiss image augmentation for the moment. Train model with focal loss. Once without using provided masks and once with provided masks. |                                    |                                                              |
 
 # Improvement idea collection
 - larger image size 1536*512

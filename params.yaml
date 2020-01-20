@@ -5,8 +5,8 @@ model:
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: '../output/20200112_focal_loss_v2/model_5.pth'
-  flag_use_dummy_model: 0
+  path_weights: #'../output/20200112_focal_loss_v2/model_2.pth'
+  flag_use_dummy_model: 1
 
 datasets:
   flag_use_mask: 1
@@ -27,11 +27,11 @@ mode: 'train' # train or predict
 
 train:
   use_augmentation: 0
-  batch_size: 4
-  batch_size_eval: 4
+  batch_size: 8
+  batch_size_eval: 8
   num_epochs: 10
   learning_rate:
-    initial: 0.002
+    initial: 0.003
     num_epochs_const: 30 # thus effectively disable LR decay
     factor_decrease: 0.1
   loss:

@@ -11,7 +11,7 @@ import gc
 import pandas as pd
 
 
-def _neg_loss(pred, gt):
+def _neg_loss(pred_org, gt):
     ''' Modified focal loss. Exactly the same as CornerNet.
         Runs faster and costs a little bit more memory
       Arguments:
@@ -23,10 +23,10 @@ def _neg_loss(pred, gt):
     alpha = 2
     beta = 4
 
-    # for debug purposes
-    if False:
-        pred_contains_1 = pred.eq(1).any()
-        pred_contains_0 = pred.eq(0).any()
+    # convert pred to [0,1] range. Prevent exact 0 or 1, because would yield nan
+    pred = torch.sigmoid(pred_org)
+    eps = 1E-10
+    pred = torch.clamp(pred, eps, 1 - eps)
 
     ind_gt_eq1 = gt.eq(1).float()
     ind_gt_lt1 = gt.lt(1).float()
@@ -55,7 +55,7 @@ def calc_loss(prediction,
     if params['flag_focal_loss']:
         # focal loss, see https://github.com/xingyizhou/CenterNet/blob/master/src/lib/models/losses.py
         gt = mask
-        pred = torch.sigmoid(prediction[:, 0, :, :])
+        pred = prediction[:, 0, :, :]
         loss_mask = _neg_loss(pred, gt)
         weight_mask = 0.5 / 20.0 * 15  # so that mask_loss more or less equal to regr_loss
 

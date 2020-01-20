@@ -284,13 +284,13 @@ if __name__ == '__main__':
                         'input_width': 1536,
                         },
               'train': {'loss': {'flag_focal_loss': 1}},
-              'datasets': {'flag_use_mask': 0},
+              'datasets': {'flag_use_mask': 1},
               }
     dataset = data_loader.DataSet(path_csv='../data/train.csv',
                                   path_folder_images='../data/train_images',
                                   path_folder_masks='../data/train_masks',
                                   )
-    dataset_torch = DataSetTorch(dataset, params)
+    dataset_torch = DataSetTorch(dataset, params, flag_augment=True)
     num_items = len(dataset_torch)
     for idx_item in range(num_items):
         [img, mask, regr] = dataset_torch[idx_item]
