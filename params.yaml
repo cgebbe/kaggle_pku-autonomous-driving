@@ -1,37 +1,37 @@
-path_folder_out: '../output/20200119_focal_mask_v2'
+path_folder_out: '../output/20200119_focal_v4/model_0'
 
 model:
   input_width: 1536
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: #'../output/20200112_focal_loss_v2/model_2.pth'
-  flag_use_dummy_model: 1
+  path_weights: '../output/20200119_focal_v4/model_0.pth' #../output/20200112_focal_loss_v2/model_2.pth'
+  flag_use_dummy_model: 0 # AHHHH, MAKE BIG WARNING !!!
 
 datasets:
-  flag_use_mask: 1
+  flag_use_mask: 0
   train:
     path_csv: '../data/train_train.csv'
     path_folder_images: '../data/train_images'
     path_folder_masks: '../data/train_masks'
-  valid:
+  test: # valid
     path_csv: '../data/train_valid.csv'
     path_folder_images: '../data/train_images'
     path_folder_masks: '../data/train_masks'
-  test:
+  test_org:
     path_csv: '../data/sample_submission.csv'
     path_folder_images: '../data/test_images'
     path_folder_masks: '../data/test_masks'
 
-mode: 'train' # train or predict
+mode: 'predict' # train or predict
 
 train:
   use_augmentation: 0
-  batch_size: 8
+  batch_size: 2
   batch_size_eval: 8
-  num_epochs: 10
+  num_epochs: 30
   learning_rate:
-    initial: 0.003
+    initial: 0.002 # because at batch_size=2, already lr=0.002 worked
     num_epochs_const: 30 # thus effectively disable LR decay
     factor_decrease: 0.1
   loss:
@@ -39,8 +39,8 @@ train:
     flag_size_average: 1
 
 predict:
-  batch_size: 1
+  batch_size: 8
   num_batches_max: 99999999
   flag_optimize: 1 # modify x,y,z using predicted u,v and y(x,z) fit
-  flag_plot_mat: 1
-  flag_plot_item: 1
+  flag_plot_mat: 0
+  flag_plot_item: 0

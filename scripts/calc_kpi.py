@@ -20,7 +20,10 @@ def expand_df(df, PredictionStringCols):
     df['NumCars'] = [int((x.count(' ') + 1) / 7) for x in df['PredictionString']]
 
     image_id_expanded = [item for item, count in zip(df['ImageId'], df['NumCars']) for i in range(count)]
-    prediction_strings_expanded = df['PredictionString'].str.split(' ', expand=True).values.reshape(-1, 7).astype(float)
+    prediction_strings_expanded = df['PredictionString'].str.split(' ', expand=True).values.reshape(-1, 7)
+    mask = prediction_strings_expanded == ''
+    prediction_strings_expanded[mask] = None
+    prediction_strings_expanded = prediction_strings_expanded.astype(np.float)
     prediction_strings_expanded = prediction_strings_expanded[~np.isnan(prediction_strings_expanded).all(axis=1)]
     df = pd.DataFrame(
         {
@@ -75,7 +78,7 @@ def RotationDistance(p, g):
     return W
 
 
-def print_pr_curve(result_flg, scores, recall_total=1):
+def plot_pr_curve(result_flg, scores, recall_total=1):
     average_precision = average_precision_score(result_flg, scores)
     precision, recall, _ = precision_recall_curve(result_flg, scores)
     recall *= recall_total
@@ -126,8 +129,8 @@ def check_match(idx):
 if __name__ == '__main__':
     # params
     max_workers = 1
-    path_csv_train = '../../data/train.csv'
-    path_csv_pred = '../../output/20200110_img_larger_v3/predictions.csv'
+    path_csv_train = '../../data/train_valid.csv'
+    path_csv_pred = '../../output/20200119_focal_v4/model_0/predictions.csv'
 
     # load predicted and train dataset
     pred_df = pd.read_csv(path_csv_pred)
@@ -142,16 +145,18 @@ if __name__ == '__main__':
     ap_list = []
     p = Pool(processes=max_workers)
     for result_flg, scores in p.imap(check_match, range(10)):
-        if np.sum(result_flg) > 0: # fn o
+        if np.sum(result_flg) > 0:  # fn o
             n_tp = np.sum(result_flg)
             recall = n_tp / n_gt
-            if True: # see https://www.kaggle.com/its7171/metrics-evaluation-script#710936
-                scores2 = np.random.rand(len(result_flg))
+            if True:  # see https://www.kaggle.com/its7171/metrics-evaluation-script#710936
+                scores = np.random.rand(len(result_flg))
             ap = average_precision_score(result_flg, scores) * recall
-            print_pr_curve(result_flg, scores, recall)
+            # plot_pr_curve(result_flg, scores, recall)
         else:
             ap = 0
         ap_list.append(ap)
+        if len(ap_list) % 10 == 0:
+            print("{}/{}".format(len(ap_list), len(scores)))
     map = np.mean(ap_list)
     print('map={}'.format(map))
     print("=== Finished")

@@ -7,6 +7,7 @@ import math
 import matplotlib.pyplot as plt
 import albumentations
 import scripts.flip_image_hor
+from tqdm import tqdm
 
 
 def reduce_saturation(img, sat_shift_range=(-0.5, 0)):
@@ -83,7 +84,7 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # perform augmentation
         if self.flag_augment:
-            img, mat = self.augment_img(img, mat)
+            img, mat = self.augment_img(img, mat, idx_item)
 
         # convert matrices to desired torch format
         img = np.rollaxis(img, 2, 0)
@@ -102,7 +103,7 @@ class DataSetTorch(torch.utils.data.Dataset):
         img = img.astype('float32') / 255.0
         return img
 
-    def augment_img(self, img, mat):
+    def augment_img(self, img, mat, idx_item=None):
         """ img already in float32 BGR format, not uint8
         """
 
@@ -131,7 +132,7 @@ class DataSetTorch(torch.utils.data.Dataset):
             img_desat = img_flipped
 
         # gamma change
-        aug1 = albumentations.RandomGamma(gamma_limit=(70, 130),
+        aug1 = albumentations.RandomGamma(gamma_limit=(80, 120),
                                           p=0.33,
                                           )
 
@@ -148,10 +149,16 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # for debugging purposes
         if False:
-            fig, ax = plt.subplots(2, 1)
-            ax[0].imshow(img[:, :, ::-1])
-            ax[1].imshow(img_augmented[:, :, ::-1])
+            fig, ax = plt.subplots(3, 2, figsize=(9, 6))
+            ax[0][0].imshow(img[:, :, ::-1])
+            ax[0][1].imshow(img_augmented[:, :, ::-1])
+            ax[1][0].imshow(mat[:, :, 0])
+            ax[1][1].imshow(mat_flipped[:, :, 0])
+            ax[2][0].imshow(mat[:, :, 4])  # x
+            ax[2][1].imshow(mat_flipped[:, :, 4])
+            # fig.tight_layout()
             plt.show()
+            fig.savefig('plots_aug/{:05d}.png'.format(idx_item))
 
         return img_augmented, mat_flipped
 
@@ -292,7 +299,7 @@ if __name__ == '__main__':
                                   )
     dataset_torch = DataSetTorch(dataset, params, flag_augment=True)
     num_items = len(dataset_torch)
-    for idx_item in range(num_items):
+    for idx_item in tqdm(range(num_items)):
         [img, mask, regr] = dataset_torch[idx_item]
 
         # reverse rolling backwards
@@ -302,14 +309,15 @@ if __name__ == '__main__':
         print(regr.shape)
 
         # plot example
-        fig, ax = plt.subplots(3, 1, figsize=(10, 10))
-        ax[0].imshow(img[:, :, ::-1])
-        ax[1].imshow(mask)
-        ax[2].imshow(regr[:, :, 0])
-        fig.tight_layout()
-        plt.show()
-        if idx_item % 5 == 0:
-            dummy = 0
-        # fig.savefig("output/plot.png")
+        if False:
+            fig, ax = plt.subplots(3, 1, figsize=(10, 10))
+            ax[0].imshow(img[:, :, ::-1])
+            ax[1].imshow(mask)
+            ax[2].imshow(regr[:, :, 0])
+            fig.tight_layout()
+            plt.show()
+            if idx_item % 5 == 0:
+                dummy = 0
+            # fig.savefig("output/plot.png")
 
     print("=== Finished")

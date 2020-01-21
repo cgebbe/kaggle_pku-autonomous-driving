@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import data_loader
 import data_loader_torch
 import torch
@@ -47,7 +48,7 @@ def optimize_xyz(v_pred, u_pred, x0, y0, z0, params):
     # print("\n norm_diff_rel={}".format(norm_diff_rel))
 
     # return either optimized or non optimized variables
-    if norm_diff_rel > 0.1 or z_new < 0:
+    if norm_diff_rel > 0.33 or z_new < 0:
         is_marked = 1
         return x0, y0, z0, is_marked
     else:
@@ -65,15 +66,18 @@ def predict(model,
         path_folder_images=params['datasets']['test']['path_folder_images'],
         path_folder_masks=params['datasets']['test']['path_folder_masks'],
     )
-    dataset_torch_test = data_loader_torch.DataSetTorch(dataset_test, params,
-                                                        flag_load_label=False,
-                                                        flag_augment=False,
-                                                        )
-    data_loader_test = torch.utils.data.DataLoader(dataset=dataset_torch_test,
-                                                   batch_size=params['predict']['batch_size'],
-                                                   shuffle=False,
-                                                   num_workers=0,
-                                                   )
+    dataset_torch_test = data_loader_torch.DataSetTorch(
+        dataset_test, params,
+        flag_load_label=False,
+        flag_augment=False,
+    )
+    data_loader_test = torch.utils.data.DataLoader(
+        dataset=dataset_torch_test,
+        batch_size=params['predict']['batch_size'],
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,  # see https://pytorch.org/docs/stable/data.html
+    )
 
     # perform predictions
     predictions = []
@@ -93,13 +97,16 @@ def predict(model,
         # extract cars as string from each element in batch
         num_elems_in_batch = output.shape[0]
         for idx_elem_in_batch in range(num_elems_in_batch):
+            idx_id = idx_batch * params['predict']['batch_size'] + idx_elem_in_batch
+            id = dataset_test.list_ids[idx_id]
+
             # get mat from output and plot
             mat = output[idx_elem_in_batch, ...]
             mat = np.rollaxis(mat, 0, 3)  # reverse rolling backwards
             if params['predict']['flag_plot_mat']:
                 # convert image to numpy
                 img_numpy = img.data.cpu().numpy()
-                img_numpy = img_numpy[0, ...]
+                img_numpy = img_numpy[idx_elem_in_batch, ...]
                 img_numpy = np.rollaxis(img_numpy, 0, 3)  # reverse rolling backwards
                 img_numpy = img_numpy[:, :, ::-1]  # BGR to RGB
 
@@ -113,13 +120,12 @@ def predict(model,
                     ax[4].imshow(mat[:, :, 7])
                 for axi, label in zip(ax, ['img', 'mask']):  # , 'x', 'y', 'z']):
                     axi.set_ylabel(label)
-                id = dataset_test.df_cars.loc[idx_batch, 'ImageId']
                 fig.suptitle('ImageID={}'.format(id))
 
                 # save
                 path_out = os.path.join(params['path_folder_out'],
                                         'pred_mat',
-                                        '{:05d}.png'.format(idx_batch),
+                                        '{:05d}.png'.format(idx_id),
                                         )
                 os.makedirs(os.path.dirname(path_out), exist_ok=True)
                 fig.savefig(path_out)
@@ -136,7 +142,6 @@ def predict(model,
                     item.cars[idx_car].is_marked = is_marked
 
             if params['predict']['flag_plot_item']:
-                id = dataset_test.df_cars.loc[idx_batch, 'ImageId']
                 item_org = dataset_test.load_item(id)
                 item.img = item_org.img
                 item.mask = np.zeros((1, 1))
@@ -150,7 +155,7 @@ def predict(model,
                 # save
                 path_out = os.path.join(params['path_folder_out'],
                                         'pred_item',
-                                        '{:05d}.png'.format(idx_batch),
+                                        '{:05d}.png'.format(idx_id),
                                         )
                 os.makedirs(os.path.dirname(path_out), exist_ok=True)
                 fig.savefig(path_out)
@@ -161,7 +166,8 @@ def predict(model,
             predictions.append(string)
 
     # predictions to csv
-    df_out = dataset_torch_test.dataset.df_cars
+    df_out = pd.DataFrame()
+    df_out['ImageId'] = dataset_test.list_ids
     df_out.loc[0:len(predictions) - 1, 'PredictionString'] = predictions
     print(df_out.head())
     path_csv = os.path.join(params['path_folder_out'], 'predictions.csv')

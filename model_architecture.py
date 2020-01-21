@@ -4,9 +4,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import logging
 import torch.utils.model_zoo as model_zoo
 import torchvision
 
+logger = logging.getLogger('model_arch')
 #NORM_LAYER = nn.BatchNorm2d() # num_features (output)
 #NORM_LAYER = nn.GroupNorm() # num_groups, num_channels
 
@@ -104,6 +106,9 @@ class MyUNet(nn.Module
                 self.up3 = up(256 + 128, 256)  # x2 = 128
             self.outc = nn.Conv2d(256, n_classes, 1)
         else:
+            logger.warning("!!! CAUTION: USING DUMMY MODEL !!!")
+            logger.warning("!!! CAUTION: USING DUMMY MODEL !!!")
+            logger.warning("!!! CAUTION: USING DUMMY MODEL !!!")
             # replicate base model with dummys: 5x maxpool and 1280 resulting channels
             self.base_model = nn.Sequential(
                 nn.MaxPool2d(2),
@@ -146,8 +151,8 @@ class MyUNet(nn.Module
         mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3], self.device)
         feats = torch.cat([feats, mesh2], 1)  # add positional info via mesh
 
-        x = self.up1(feats, x4)  # upsample feat and concat result with x4
-        x = self.up2(x, x3)  # upsample x and concat result with x3
+        x = self.up1(feats, x4)  # upsample feat, concat result with x4 and conv
+        x = self.up2(x, x3)  # upsample x, concat result with x3 and conv
         if self.params['model']['factor_downsample'] == 4:
             x = self.up3(x, x2)  # upsample x and concat result with x2
         x = self.outc(x)

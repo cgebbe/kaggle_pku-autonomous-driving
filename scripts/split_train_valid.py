@@ -17,7 +17,7 @@ assert os.path.exists(path_csv), "No file at {}".format(path_csv)
 df_org = pd.read_csv(path_csv, sep=',')
 
 # split
-df_train, df_valid = train_test_split(df_org, test_size=0.01, random_state=42)
+df_train, df_valid = train_test_split(df_org, test_size=0.10, random_state=42)
 
 # write split csv
 df_train.to_csv(os.path.join(path_folder, 'train_train.csv'), sep=',', index=False)

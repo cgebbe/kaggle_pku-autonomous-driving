@@ -157,7 +157,7 @@ class DataSet:
         self.df_cars = pd.read_csv(path_csv, sep=',')
 
         # remove erroneous images from list in training
-        if 'train' in path_csv:
+        if 'train_train' in path_csv:
             ids_erroneous = ['ID_1a5a10365,'
                              'ID_4d238ae90',
                              'ID_408f58e9f',

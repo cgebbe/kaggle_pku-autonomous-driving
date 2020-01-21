@@ -18,18 +18,22 @@
 | Increased model input size from 1024x320 to 1536x512 (without modifying layers. Maybe another convolution would be necessary, because effective window size decreases?). Added another upsample convolution to increase output size to 384x128 (before 128x40) | x - aborted training after epoch 4 | mask loss dominates. -> Change weights s.t. mask and regr loss are similar |
 | Changed weights, so that mask and regr loss are same order of magnitude, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/115673 | public LB 0.062, place 109/820     | :)  -> Next: choose next improvement idea                    |
 | Major change: Switched from binary loss to focal loss for mask. Minor change: Excluded five erroneous images from training set | public LB 0                        | :( Mask seems great, but regression values are totally wrong |
-| In training: Changed regression loss by extracting binary mask from heatmap mask. Also changed learning rate scheduler slightly. In prediction post-processing: Disable optimization if optimized values don't make sense.  (20200112_focal_loss_v2 / model_6) | public LB 0.044                    | My impression is that learning is not yet finished. Could achieve better score by training more -> Train focal loss more and disable LR decay |
-| (In parallel to training above): Trained a new model with focal loss, image augmentation and usage of provided masks. | public LB 0.005                    | Somehow very few car predictions, especially near cars. Focal loss w/out image augmentation & mask is much better. Is something off with augmentation after all?! |
+| In training: Changed regression loss by extracting binary mask from heatmap mask. Also changed learning rate scheduler slightly. In prediction post-processing: Disable optimization if optimized values don't make sense.  (20200112_focal_loss_v2 / model_6) | public LB 0.044                    | My impression is that learning is not yet finished. Could achieve better score by training more -> Train focal loss more and disable LR decay. Also, why is loss_regr so high? Was 0.13 before, now at 0.51? Tried learning more, but then overfits... -> Focal loss not effective? |
+| (In parallel to training above): Trained a new model with focal loss, image augmentation and usage of provided masks. | public LB 0.005                    | Somehow very few car predictions, especially near cars. Focal loss w/out image augmentation & mask is much better. Is something off with augmentation after all?! No, I guess just too much augmentation and current usage of mask not effective. Rather concat mask to image! |
 | Dismiss image augmentation for the moment. Train model with focal loss. Once without using provided masks and once with provided masks. |                                    |                                                              |
 
 # Improvement idea collection
-- larger image size 1536*512
+- larger image `size` 1536*512
   - together with focal loss achieves LB 0.078, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/123193
 - change to focal loss (?)
   - https://www.kaggle.com/c/pku-autonomous-driving/discussion/121608
   - https://www.kaggle.com/c/pku-autonomous-driving/discussion/115673
   - heatmap, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/123090
   - use AdamW optimizer, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/121608
+- hyperparameters
+  - theory about learning rate (lr)
+    - If `batch_size*=k`, one should set `lr*=sqrt(k)`or `lr*=k`. However, using adaptive optimizers (e.g. Adam), lr can stay constant. See https://stackoverflow.com/questions/53033556/how-should-the-learning-rate-change-as-the-batch-size-change
+    - 
 - exclude broken images in training, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/117621
   - ID_1a5a10365.jpg
   - ID_4d238ae90.jpg
@@ -71,13 +75,19 @@
 
 # Lessons learned
 
-- Simply download the predictions.csv output file from a notebook to evaluate its score instead of rerunning the whole notebook and waiting 12h
-- Instead of starting code from scratch rather refactor the existing notebook code. While starting from scratch is a greater learning experience and produces more structured code (in my view), it is quite difficult and cumbersome to get all details right in the reimplementation and thus have a defined starting point.
-- Buy a decent GPU. Solution now was to use either a free google colab GPU via ssh and pycharm remote (possible through ngrok "hack") or sometimes the free kaggle GPU. However, both have disadvantages (see details below). Often, I would start 1-2 trainings in the evening and I would find both of them aborted the next morning :/.
-  - Usage of the kaggle GPU is limited to 30h/week and importing the code is tedious. Moreover, during commiting, you cannot see any output and thus detect e.g. a nan-loss.
-  - Google colab sessions have an official time limit of 12h, but in reality training often already stopped after e.g. 4-5h or sometimes even earlier to my surprise. Moreover, I was never able to acquire a GPU backend in the day, only in the evenings.
-  - At the end, I invested into a google cloud GPU (P100). However, even that one was not available all the time :/
-- Work with larger validation set (currently only 1%) so that can be used for validation (because test set online can only be used 2x a day)
+- kaggle specific
+  - Simply download the predictions.csv output file from a notebook to evaluate its score instead of rerunning the whole notebook and waiting 12h
+  - Instead of starting code from scratch rather refactor the existing notebook code. While starting from scratch is a greater learning experience and produces more structured code (in my view), it is quite difficult and cumbersome to get all details right in the reimplementation and thus have a defined starting point.
+- More general
+  - Buy a decent GPU. Solution now was to use either a free google colab GPU via ssh and pycharm remote (possible through ngrok "hack") or sometimes the free kaggle GPU. However, both have disadvantages (see details below). Often, I would start 1-2 trainings in the evening and I would find both of them aborted the next morning :/.
+    - Usage of the kaggle GPU is limited to 30h/week and importing the code is tedious. Moreover, during commiting, you cannot see any output and thus detect e.g. a nan-loss.
+    - Google colab sessions have an official time limit of 12h, but in reality training often already stopped after e.g. 4-5h or sometimes even earlier to my surprise. Moreover, I was never able to acquire a GPU backend in the day, only in the evenings.
+    - At the end, I invested into a google cloud GPU (P100). While it was much more productive than colab, the connection was not 100% stable, the server was sometimes unavailable and analyzing output images requires a time-consuming download at first.
+  - Work with larger validation set (currently only 1%) so that can be used for real evaluation (because test set online can only be used 2x a day)
+  - Only change one thing at a time. Due to the limited GPU availability, I sometimes changed several things at one time and could not assess the effects of each change. Resist the temptation...
+  - Compare losses not only between epochs, but also between different models. If something is significantly different, question it.
+  - Pytorch parameters num_workers>2 and pin_memory=True speed up training by a factor of ~3
+  - Research even more before implementing. 
 
 
 
@@ -145,7 +155,8 @@
   
     - ```
       ssh username@ssh.server.com -p 22 
-      ssh c.gebbe@XXX.XXX.XXX.XXX -p 22 -v
       ```
-  
+    
   - using pycharm, see https://blog.jetbrains.com/pycharm/2017/08/ssh-agent-simplify-ssh-keys/
+  
+    - -> really easy (even detected my public key)

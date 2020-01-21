@@ -179,7 +179,8 @@ def train(model,
         dataset=dataset_torch,
         batch_size=params['train']['batch_size'],
         shuffle=True,
-        num_workers=0,
+        num_workers=4,
+        pin_memory=True, # see https://pytorch.org/docs/stable/data.html
     )
 
     # define optimizer and decrease learning rate by 0.1 every 3 epochs
