@@ -1,29 +1,29 @@
-path_folder_out: '../output/20200119_focal_v4/model_0'
+path_folder_out: '../output/20200121_focalnew_mask_v1'
 
 model:
   input_width: 1536
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: '../output/20200119_focal_v4/model_0.pth' #../output/20200112_focal_loss_v2/model_2.pth'
+  path_weights: #'../output/20200119_focal_v4/model_0.pth' #../output/20200112_focal_loss_v2/model_2.pth'
   flag_use_dummy_model: 0 # AHHHH, MAKE BIG WARNING !!!
 
 datasets:
-  flag_use_mask: 0
+  flag_use_mask: 1
   train:
     path_csv: '../data/train_train.csv'
     path_folder_images: '../data/train_images'
     path_folder_masks: '../data/train_masks'
-  test: # valid
+  valid: # valid
     path_csv: '../data/train_valid.csv'
     path_folder_images: '../data/train_images'
     path_folder_masks: '../data/train_masks'
-  test_org:
+  test:
     path_csv: '../data/sample_submission.csv'
     path_folder_images: '../data/test_images'
     path_folder_masks: '../data/test_masks'
 
-mode: 'predict' # train or predict
+mode: 'train' # train or predict
 
 train:
   use_augmentation: 0

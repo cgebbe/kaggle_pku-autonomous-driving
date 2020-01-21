@@ -195,13 +195,13 @@ class DataSet:
         # load mask
         if flag_load_mask:
             path_mask = os.path.join(self.path_folder_masks, id + '.jpg')
-            try:
-                item.mask = cv2.imread(path_mask)
-                mask_bool_per_channel = item.mask > 127
-                mask_bool = np.all(mask_bool_per_channel, axis=-1)
-                item.img[mask_bool] = [255, 0, 255]
-            except:
+            if os.path.exists(path_mask):
+                mask = cv2.imread(path_mask)
+                mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+                item.mask = np.expand_dims(mask_gray, axis=-1)
+            else:
                 logger.debug('Mask not found for id={}'.format(id))
+                item.mask = np.zeros((1,1,1), dtype=np.uint8)
 
         # load car information
         if flag_load_car:

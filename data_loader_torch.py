@@ -73,8 +73,9 @@ class DataSetTorch(torch.utils.data.Dataset):
                                       flag_load_mask=self.params['datasets']['flag_use_mask'],
                                       )
 
-        # preprocess image
+        # concat mask and preprocess image
         img = self.preprocess_img(item.img)
+        mask = self.preprocess_img(item.mask)
 
         # Convert car labels to matrix
         if self.flag_load_label:
@@ -84,15 +85,18 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # perform augmentation
         if self.flag_augment:
-            img, mat = self.augment_img(img, mat, idx_item)
+            img, mask, mat = self.augment_img(img, mask, mat, idx_item)
 
-        # convert matrices to desired torch format
+        # convert matrices to desired torch format (channel first)
         img = np.rollaxis(img, 2, 0)
-        mask = mat[:, :, 0]
+        if len(mask.shape) < 3:
+            mask = np.expand_dims(mask, -1)
+        mask = np.rollaxis(mask, 2, 0)
+        heatmap = mat[:, :, 0]
         regr = mat[:, :, 1:]
         regr = np.rollaxis(regr, 2, 0)
 
-        return [img, mask, regr]
+        return [img, mask, heatmap, regr]
 
     def preprocess_img(self, img):
         img = img[img.shape[0] // 2:]  # only use bottom half of image
@@ -103,7 +107,7 @@ class DataSetTorch(torch.utils.data.Dataset):
         img = img.astype('float32') / 255.0
         return img
 
-    def augment_img(self, img, mat, idx_item=None):
+    def augment_img(self, img, mask, mat, idx_item=None):
         """ img already in float32 BGR format, not uint8
         """
 
@@ -116,35 +120,37 @@ class DataSetTorch(torch.utils.data.Dataset):
             cx_mat = uv_cx_new[0]
             cx_img = cx_mat * self.factor_downsample
             img_flipped = scripts.flip_image_hor.flip_hor_at_u(img, cx_img)
+            mask_flipped = scripts.flip_image_hor.flip_hor_at_u(mask, cx_img)
             mat_flipped = scripts.flip_image_hor.flip_hor_at_u(mat, cx_mat)
             mat_flipped[:, :, 4] *= -1  # x
             mat_flipped[:, :, 2] *= -1  # sin(yaw)
             mat_flipped[:, :, 3] *= -1  # roll
         else:
             img_flipped = img
+            mask_flipped = mask
             mat_flipped = mat
 
         # grayish - change HSV values
         p_sat = np.random.uniform()  # in [0,1)
-        if p_sat > 0.33:
+        if p_sat > 1:
             img_desat = reduce_saturation(img_flipped, sat_shift_range=(-0.15, 0))
         else:
             img_desat = img_flipped
 
         # gamma change
-        aug1 = albumentations.RandomGamma(gamma_limit=(80, 120),
-                                          p=0.33,
-                                          )
+        aug_gamma = albumentations.RandomGamma(gamma_limit=(95, 105),
+                                               p=0.33,
+                                               )
 
         # gaussian noise
-        aug2 = albumentations.MultiplicativeNoise(multiplier=(0.85, 1.15),
-                                                  elementwise=True,
-                                                  per_channel=True,
-                                                  p=0.33,
-                                                  )
+        aug_noise = albumentations.MultiplicativeNoise(multiplier=(0.95, 1.05),
+                                                       elementwise=True,
+                                                       per_channel=True,
+                                                       p=0.33,
+                                                       )
 
         # apply all augmentations to image
-        aug_tot = albumentations.Compose([aug1, aug2], p=1)
+        aug_tot = albumentations.Compose([aug_gamma, aug_noise], p=1)
         img_augmented = aug_tot(image=img_desat)['image']
 
         # for debugging purposes
@@ -160,7 +166,7 @@ class DataSetTorch(torch.utils.data.Dataset):
             plt.show()
             fig.savefig('plots_aug/{:05d}.png'.format(idx_item))
 
-        return img_augmented, mat_flipped
+        return img_augmented, mask_flipped, mat_flipped
 
     def convert_item_to_mat(self, item):
         # create empty mat with 8 channels for
@@ -193,21 +199,24 @@ class DataSetTorch(torch.utils.data.Dataset):
         # in case of focal loss usage, create heatmap for each car
         if self.params['train']['loss']['flag_focal_loss']:
             mat[:, :, 0] = 0  # reset confidence values to 0
-            height = mat.shape[0]
-            width = mat.shape[1]
+            height, width = mat.shape[0:2]
             us, vs = np.meshgrid(np.arange(width), np.arange(height))
-            for car in item.cars:
+            num_cars = len(item.cars)
+            heatmaps = np.zeros((height, width, num_cars), dtype=np.float)
+            for idx_car, car in enumerate(item.cars):
                 uv_center = car.get_uv_center()
                 uv_new = self.convert_uv_to_uv_preprocessed(uv_center, item.img.shape)
                 uv_new = np.round(uv_new).astype(int)  # round floats to int
                 u, v = uv_new[0], uv_new[1]
                 # choose sigma s.t. sigma = 5px at 10m and 8x downsample (40x128)
                 sigma = 5 * 10 / car.z * 8 / self.factor_downsample
-                heatmap = np.exp(- ((us - u) ** 2 + (vs - v) ** 2) / (2.0 * sigma))
-                mat[:, :, 0] += heatmap
-        # set values less than 1E-12 to 0 (probably not necessary, but easier)
-        mask_low = mat[:, :, 0] < 1E-12
-        mat[:, :, 0][mask_low] = 0
+                heatmaps[:, :, idx_car] = np.exp(- ((us - u) ** 2 + (vs - v) ** 2) / (2.0 * sigma))
+
+            # set values less than 1E-12 to 0 (probably not necessary, but easier)
+            mat[:, :, 0] = np.max(heatmaps, axis=-1)
+            assert np.max(mat[:, :, 0]) <= 1 and np.min(mat[:, :, 0]) >= 0
+            mask_low = mat[:, :, 0] < 1E-12
+            mat[:, :, 0][mask_low] = 0
 
         return mat
 
@@ -300,24 +309,26 @@ if __name__ == '__main__':
     dataset_torch = DataSetTorch(dataset, params, flag_augment=True)
     num_items = len(dataset_torch)
     for idx_item in tqdm(range(num_items)):
-        [img, mask, regr] = dataset_torch[idx_item]
+        [img, mask, heatmap, regr] = dataset_torch[idx_item]
 
         # reverse rolling backwards
         img = np.rollaxis(img, 0, 3)
+        mask = np.rollaxis(mask, 0, 3)
         regr = np.rollaxis(regr, 0, 3)
         print(img.shape)
         print(regr.shape)
 
         # plot example
         if False:
-            fig, ax = plt.subplots(3, 1, figsize=(10, 10))
+            fig, ax = plt.subplots(4, 1, figsize=(10, 10))
             ax[0].imshow(img[:, :, ::-1])
             ax[1].imshow(mask)
-            ax[2].imshow(regr[:, :, 0])
+            ax[2].imshow(heatmap)
+            ax[3].imshow(regr[:, :, 0])
             fig.tight_layout()
             plt.show()
             if idx_item % 5 == 0:
                 dummy = 0
-            # fig.savefig("output/plot.png")
+            fig.savefig("plot_test.png")
 
     print("=== Finished")

@@ -83,7 +83,7 @@ def predict(model,
     predictions = []
     model.eval()
     idx_batch = -1
-    for img, _, _ in tqdm(data_loader_test):
+    for img, mask, _, _ in tqdm(data_loader_test):
         idx_batch += 1
         if idx_batch > params['predict']['num_batches_max']:
             print("Ending early because of param num_batches_max={}".format(params['predict']['num_batches_max']))
@@ -91,7 +91,9 @@ def predict(model,
 
         # perform prediction
         with torch.no_grad():
-            output = model(img.to(device))
+            # concat img and mask and perform inference
+            input = torch.cat([img, mask], 1)  # nbatch, nchannels, height, width
+            output = model(input.to(device))
         output = output.data.cpu().numpy()
 
         # extract cars as string from each element in batch

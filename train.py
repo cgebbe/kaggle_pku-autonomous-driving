@@ -26,17 +26,17 @@ def _neg_loss(pred_org, gt):
     # convert pred to [0,1] range. Prevent exact 0 or 1, because would yield nan
     pred = torch.sigmoid(pred_org)
     eps = 1E-10
-    pred = torch.clamp(pred, eps, 1 - eps)
+    #pred = torch.clamp(pred, eps, 1 - eps) # maybe necessary ?!
 
     # separate into pos and neg loss
-    ind_gt_eq1 = gt.eq(1).float()
-    ind_gt_lt1 = gt.lt(1).float()
-    num_pos = ind_gt_eq1.float().sum()
+    mask_gt_eq1 = gt.eq(1).float()
+    mask_gt_lt1 = gt.lt(1).float()
+    num_pos = mask_gt_eq1.float().sum()
 
     # calc pos and neg loss
     neg_weights = torch.pow(1 - gt, beta)
-    pos_loss = torch.log(pred) * torch.pow(1 - pred, alpha) * ind_gt_eq1
-    neg_loss = torch.log(1 - pred) * torch.pow(pred, alpha) * neg_weights * ind_gt_lt1
+    pos_loss = torch.log(pred) * torch.pow(1 - pred, alpha) * mask_gt_eq1
+    neg_loss = torch.log(1 - pred) * torch.pow(pred, alpha) * neg_weights * mask_gt_lt1
     pos_loss = pos_loss.sum()
     neg_loss = neg_loss.sum()
 
@@ -82,11 +82,12 @@ def calc_loss(prediction,
 
     # Regression L1 loss
     if params['flag_focal_loss']:
-        mask_binary = mask.ge(1).float()
+        mask_binary = mask.eq(1).float()
         if False:  # for debug purposes
             mask_np = mask.data.cpu().numpy()
             mask_binary_np = mask_binary.data.cpu().numpy()
-            num_cars = np.sum(mask_binary_np)
+            num_cars = np.sum(mask_binary_np[0,...])
+            print("There are {} cars in the image".format(num_cars))
             fig, ax = plt.subplots(2, 1, figsize=(15, 15))
             ax[0].imshow(mask_np[0, ...])
             ax[1].imshow(mask_binary_np[0, ...])
@@ -138,11 +139,14 @@ def evaluate(model,
     num_batches = len(dataset_loader)
     loss_per_name = dict()
     print("Evaluating")
-    for img_batch, mask_batch, regr_batch in tqdm(dataset_loader):
-        # perform inference and calculate loss
-        output = model(img_batch.to(device))
+    for img_batch, mask_batch, heatmap_batch, regr_batch in tqdm(dataset_loader):
+        # concat img and mask and perform inference
+        input = torch.cat([img_batch, mask_batch], 1)  # nbatch, nchannels, height, width
+        output = model(input.to(device))
+
+        # calculate loss
         batch_loss_per_name = calc_loss(output,
-                                        mask_batch.to(device),
+                                        heatmap_batch.to(device),
                                         regr_batch.to(device),
                                         params['train']['loss'],
                                         )
@@ -180,7 +184,7 @@ def train(model,
         batch_size=params['train']['batch_size'],
         shuffle=True,
         num_workers=4,
-        pin_memory=True, # see https://pytorch.org/docs/stable/data.html
+        pin_memory=True,  # see https://pytorch.org/docs/stable/data.html
     )
 
     # define optimizer and decrease learning rate by 0.1 every 3 epochs
@@ -208,12 +212,15 @@ def train(model,
         num_batches = len(dataset_loader)
         loss_per_name = dict()
         dataset_tqdm = tqdm(dataset_loader)
-        for img_batch, mask_batch, regr_batch in dataset_tqdm:
+        for img_batch, mask_batch, heatmap_batch, regr_batch in dataset_tqdm:
 
-            # perform inference and calculate loss
-            output = model(img_batch.to(device))
+            # concat img and mask and perform inference
+            input = torch.cat([img_batch, mask_batch], 1)  # nbatch, nchannels, height, width
+            output = model(input.to(device))
+
+            # calculate loss
             batch_loss_per_name = calc_loss(output,
-                                            mask_batch.to(device),
+                                            heatmap_batch.to(device),
                                             regr_batch.to(device),
                                             params['train']['loss'],
                                             )

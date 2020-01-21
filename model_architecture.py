@@ -9,8 +9,10 @@ import torch.utils.model_zoo as model_zoo
 import torchvision
 
 logger = logging.getLogger('model_arch')
-#NORM_LAYER = nn.BatchNorm2d() # num_features (output)
-#NORM_LAYER = nn.GroupNorm() # num_groups, num_channels
+
+
+# NORM_LAYER = nn.BatchNorm2d() # num_features (output)
+# NORM_LAYER = nn.GroupNorm() # num_groups, num_channels
 
 
 class double_conv(nn.Module):
@@ -103,7 +105,7 @@ class MyUNet(nn.Module
             self.up1 = up(1282 + 1024, 512)  # feats = 1282, x4 = 1024
             self.up2 = up(512 + 512, 256)  # x3 = 512
             if self.params['model']['factor_downsample'] == 4:
-                self.up3 = up(256 + 128, 256)  # x2 = 128
+                self.up3 = up(256 + 128 + 1, 256)  # x2 = 128, mask=1
             self.outc = nn.Conv2d(256, n_classes, 1)
         else:
             logger.warning("!!! CAUTION: USING DUMMY MODEL !!!")
@@ -128,7 +130,12 @@ class MyUNet(nn.Module
                 self.up3 = up(1 + 1, 1)  # x2 = 128
             self.outc = nn.Conv2d(1, n_classes, 1)
 
-    def forward(self, x):
+    def forward(self, input):
+        # extract image and gray-scale mask from input
+        x = input[:, 0:3, :, :]
+        mask = input[:, 3:, :, :]
+        mask_resized = self.mp(self.mp(mask))
+
         # simply perform 4x double convolution + max-pooling
         batch_size = x.shape[0]
         mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3], self.device)
@@ -154,7 +161,8 @@ class MyUNet(nn.Module
         x = self.up1(feats, x4)  # upsample feat, concat result with x4 and conv
         x = self.up2(x, x3)  # upsample x, concat result with x3 and conv
         if self.params['model']['factor_downsample'] == 4:
-            x = self.up3(x, x2)  # upsample x and concat result with x2
+            x2_mask = torch.cat([x2, mask_resized], 1)
+            x = self.up3(x, x2_mask)  # upsample x, concat result with x2 and conv
         x = self.outc(x)
         return x
 
@@ -166,13 +174,14 @@ if __name__ == '__main__':
 
     # define model and test inference with dummy data
     params = {'model': {'factor_downsample': 4,
-                        'flag_use_dummy_model': 1,
+                        'flag_use_dummy_model': 0,
                         },
               }
     width = 1536  # 1536  # 1024
     height = 512  # 512  # 320
     model = MyUNet(8, device, params).to(device)
-    img_batch = torch.randn((1, 3, height, width))
+    size_batch = 3
+    img_batch = torch.randn((size_batch, 4, height, width))
     mat_pred = model(img_batch.to(device))
     print(mat_pred)
     print(mat_pred.shape)

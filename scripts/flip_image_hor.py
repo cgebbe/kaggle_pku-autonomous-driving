@@ -9,7 +9,7 @@ def flip_hor_at_u(img, cx, flag_plot=False):
     u_flip = cx_rounded / 2
 
     # determine new width
-    height, width, nchannels = img.shape
+    height, width = img.shape[0:2]
     if cx_rounded % 2 == 1:
         # if flipping line lies between two pixels
         width_left = np.ceil(u_flip)
