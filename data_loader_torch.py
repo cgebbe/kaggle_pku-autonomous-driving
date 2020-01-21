@@ -113,7 +113,7 @@ class DataSetTorch(torch.utils.data.Dataset):
 
         # horizontal flip
         p_flip = np.random.uniform()  # in [0,1)
-        if p_flip > 0:  # 0.33:
+        if p_flip > 1:  # 0.33:
             uv_cx = np.array([1686.2379, 0])
             IMG_SHAPE = (2710, 3384, 3)  # img.shape = h,w,c
             uv_cx_new = self.convert_uv_to_uv_preprocessed(uv_cx, IMG_SHAPE)
@@ -138,12 +138,12 @@ class DataSetTorch(torch.utils.data.Dataset):
             img_desat = img_flipped
 
         # gamma change
-        aug_gamma = albumentations.RandomGamma(gamma_limit=(95, 105),
+        aug_gamma = albumentations.RandomGamma(gamma_limit=(85, 115),
                                                p=0.33,
                                                )
 
         # gaussian noise
-        aug_noise = albumentations.MultiplicativeNoise(multiplier=(0.95, 1.05),
+        aug_noise = albumentations.MultiplicativeNoise(multiplier=(0.90, 1.00),
                                                        elementwise=True,
                                                        per_channel=True,
                                                        p=0.33,

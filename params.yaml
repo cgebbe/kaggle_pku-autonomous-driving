@@ -1,11 +1,11 @@
-path_folder_out: '../output/20200121_focalnew_mask_v1'
+path_folder_out: '../output/20200121_focalnew_mask_aug_v2/model_3'
 
 model:
   input_width: 1536
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: #'../output/20200119_focal_v4/model_0.pth' #../output/20200112_focal_loss_v2/model_2.pth'
+  path_weights: '../output/20200121_focalnew_mask_aug_v2/model_3.pth'#'../output/20200119_focal_v4/model_0.pth' #../output/20200112_focal_loss_v2/model_2.pth'
   flag_use_dummy_model: 0 # AHHHH, MAKE BIG WARNING !!!
 
 datasets:
@@ -23,15 +23,15 @@ datasets:
     path_folder_images: '../data/test_images'
     path_folder_masks: '../data/test_masks'
 
-mode: 'train' # train or predict
+mode: 'predict' # train or predict
 
 train:
-  use_augmentation: 0
+  use_augmentation: 1
   batch_size: 2
   batch_size_eval: 8
   num_epochs: 30
   learning_rate:
-    initial: 0.002 # because at batch_size=2, already lr=0.002 worked
+    initial: 0.003 # because at batch_size=2, already lr=0.002 worked
     num_epochs_const: 30 # thus effectively disable LR decay
     factor_decrease: 0.1
   loss:

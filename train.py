@@ -26,7 +26,7 @@ def _neg_loss(pred_org, gt):
     # convert pred to [0,1] range. Prevent exact 0 or 1, because would yield nan
     pred = torch.sigmoid(pred_org)
     eps = 1E-10
-    #pred = torch.clamp(pred, eps, 1 - eps) # maybe necessary ?!
+    pred = torch.clamp(pred, eps, 1 - eps) # maybe necessary ?!
 
     # separate into pos and neg loss
     mask_gt_eq1 = gt.eq(1).float()

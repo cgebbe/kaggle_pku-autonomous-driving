@@ -1,11 +1,11 @@
-path_folder_out: '../output/20200121_focalnew_mask'
+path_folder_out: '../output/20200121_focalnew_mask/model_10'
 
 model:
   input_width: 1536
   input_height: 512 # IMG_HEIGHT = IMG_WIDTH // 16 * 5
   factor_downsample: 4
   num_classes: 8 # x,y,z, yaw, pitch_cos, pitch_sin, roll, confidence
-  path_weights: #'model.pth' # = '../output/20200112_focal_loss_v2/model_6.pth'
+  path_weights: '../output/20200121_focalnew_mask/model_10.pth' #'model.pth' # = '../output/20200112_focal_loss_v2/model_6.pth'
   flag_use_dummy_model: 0
 
 datasets:
@@ -23,7 +23,7 @@ datasets:
     path_folder_images: '/kaggle/input/pku-autonomous-driving/test_images'
     path_folder_masks: '/kaggle/input/pku-autonomous-driving/test_masks'
 
-mode: 'train' # train or predict
+mode: 'predict' # train or predict
 
 train:
   use_augmentation: 0
@@ -43,7 +43,7 @@ predict:
   num_batches_max: 99999999
   flag_optimize: 1 # modify x,y,z using predicted u,v and y(x,z) fit
   flag_plot_mat: 0
-  flag_plot_item: 1
+  flag_plot_item: 0
 
 
 
