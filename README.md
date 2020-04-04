@@ -34,7 +34,8 @@
 - hyperparameters
   - theory about learning rate (lr)
     - If `batch_size*=k`, one should set `lr*=sqrt(k)`or `lr*=k`. However, using adaptive optimizers (e.g. Adam), lr can stay constant. See https://stackoverflow.com/questions/53033556/how-should-the-learning-rate-change-as-the-batch-size-change
-    - 
+    - lr=0.001 good default value for Adam, see https://mlfromscratch.com/optimizers-explained/#/ and original paper https://arxiv.org/pdf/1412.6980v9.pdf
+    - Use AdamW instead of Adam? https://towardsdatascience.com/adam-latest-trends-in-deep-learning-optimization-6be9a291375c
 - exclude broken images in training, see https://www.kaggle.com/c/pku-autonomous-driving/discussion/117621
   - ID_1a5a10365.jpg
   - ID_4d238ae90.jpg
